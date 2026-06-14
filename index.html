@@ -332,6 +332,7 @@ let nextJingle    = rng(CFG.jingleEveryMin, CFG.jingleEveryMax);
 
 // lyrics state
 let lyricsData = [];
+let lyricsSync = false;  // true = LRC with timestamps, false = plain text
 let lyrOpen    = false;
 let curLyrLine = -1;
 
@@ -372,7 +373,7 @@ function xget(url, type, ok, fail) {
 // ══════════════════ ID3v2 PARSER ══════════════════════════════════════════
 function parseId3(buf) {
     const b = new Uint8Array(buf);
-    const R = { title:null, artist:null, coverUrl:null };
+    const R = { title:null, artist:null, coverUrl:null, lyrics:null };
     if (b.length < 10 || b[0]!==73||b[1]!==68||b[2]!==51) return R;
     const ver = b[3], flgs = b[5];
     const tEnd = 10+(((b[6]&0x7F)<<21)|((b[7]&0x7F)<<14)|((b[8]&0x7F)<<7)|(b[9]&0x7F));
@@ -389,10 +390,11 @@ function parseId3(buf) {
         }
         if (sz<=0||sz>6_000_000) break;
         const fd = b.slice(p+hl, p+hl+sz);
-        if ((id==='TIT2'||id==='TT2') && !R.title)    R.title    = id3Txt(fd);
-        if ((id==='TPE1'||id==='TP1') && !R.artist)   R.artist   = id3Txt(fd);
-        if ((id==='APIC'||id==='PIC') && !R.coverUrl) R.coverUrl = id3Pic(fd, ver<3);
-        if (R.title && R.artist && R.coverUrl) break;
+        if ((id==='TIT2'||id==='TT2')  && !R.title)    R.title    = id3Txt(fd);
+        if ((id==='TPE1'||id==='TP1')  && !R.artist)   R.artist   = id3Txt(fd);
+        if ((id==='APIC'||id==='PIC')  && !R.coverUrl) R.coverUrl = id3Pic(fd, ver<3);
+        if ((id==='USLT'||id==='ULT')  && !R.lyrics)   R.lyrics   = id3Uslt(fd);
+        if (R.title && R.artist && R.coverUrl && R.lyrics) break;
         p += hl+sz;
     }
     return R;
@@ -421,6 +423,20 @@ function id3Pic(d, v22) {
         const pic=d.slice(i);
         if (pic.length<8) return null;
         return URL.createObjectURL(new Blob([pic],{type:mime||'image/jpeg'}));
+    } catch { return null; }
+}
+function id3Uslt(d) {
+    // USLT: [enc:1][lang:3][descriptor:null-term][lyrics]
+    if (!d||d.length<5) return null;
+    try {
+        const enc=d[0]; let i=4; // skip enc+lang
+        if (enc===1||enc===2) { while(i<d.length-1&&!(d[i]===0&&d[i+1]===0))i+=2; i+=2; }
+        else { while(i<d.length&&d[i]!==0)i++; i++; }
+        if (i>=d.length) return null;
+        const raw=d.slice(i);
+        const fake=new Uint8Array(raw.length+1); fake[0]=enc; fake.set(raw,1);
+        const txt=id3Txt(fake);
+        return txt?.trim()||null;
     } catch { return null; }
 }
 
@@ -489,7 +505,7 @@ function pump() {
 
 // ══════════════════ DYNAMIC BG COLOR ══════════════════════════════════════
 const _cvs = document.createElement('canvas');
-const _ctx = _cvs.getContext('2d');
+const _ctx = _cvs.getContext('2d', { willReadFrequently: true });
 function extractBgColor(imgEl, cb) {
     _cvs.width = _cvs.height = 40;
     try {
@@ -553,7 +569,7 @@ function loadTrack(idx, play=false) {
     setCovers(COVER);
     resetProgress();
     playerBg.style.background = '';
-    lyricsData=[]; curLyrLine=-1; updateLyrBtn();
+    lyricsData=[]; lyricsSync=false; curLyrLine=-1; updateLyrBtn();
     highlightList();
 
     if (metaDb[trackKey(idx)]) refreshPlayer();
@@ -694,13 +710,43 @@ artwork.addEventListener('click', () => {
 
 // ══════════════════ LRC LYRICS ════════════════════════════════════════════
 function tryLoadLrc(idx) {
-    const t = tracks[idx];
+    const t    = tracks[idx];
     const name = t.file.replace(/\.mp3$/i, '');
     const url  = t.dir + encodeURIComponent(name + t.lrcSuffix);
     fetch(url)
         .then(r => r.ok ? r.text() : Promise.reject())
-        .then(txt => { lyricsData=parseLrc(txt); updateLyrBtn(); if(lyrOpen) renderLyrics(); })
-        .catch(()  => { lyricsData=[]; updateLyrBtn(); });
+        .then(txt => {
+            const parsed = parseLrc(txt);
+            if (parsed.length) {
+                lyricsData = parsed; lyricsSync = true;
+            } else {
+                // LRC file exists but no timestamps — show as plain text
+                lyricsData = plainLyrics(txt); lyricsSync = false;
+            }
+            updateLyrBtn(); if (lyrOpen) renderLyrics();
+        })
+        .catch(() => useLyrFallback(idx));
+}
+function useLyrFallback(idx) {
+    // Fallback : paroles embarquées dans l'ID3 (frame USLT)
+    const key = trackKey(idx);
+    const emb = metaDb[key]?.lyrics;
+    if (emb) {
+        lyricsData = plainLyrics(emb); lyricsSync = false;
+    } else if (!metaDb[key]) {
+        // Meta pas encore chargée → réessayer quand elle arrive
+        loadMeta(idx, ()=>useLyrFallback(idx));
+        return;
+    } else {
+        lyricsData = []; lyricsSync = false;
+    }
+    updateLyrBtn(); if (lyrOpen) renderLyrics();
+}
+function plainLyrics(txt) {
+    return txt.split(/\r?\n/)
+        .map(l=>l.replace(/^\[.*?\]/g,'').trim())  // strip any LRC tags
+        .filter(l=>l)
+        .map(tx=>({ t:-1, tx }));  // t=-1 = pas de timestamp
 }
 function parseLrc(txt) {
     const rx=/\[(\d{1,2}):(\d{2}(?:\.\d+)?)\](.*)/;
@@ -716,13 +762,24 @@ function updateLyrBtn() {
 }
 function renderLyrics() {
     curLyrLine=-1;
-    lyrLines.innerHTML = lyricsData.length
-        ? lyricsData.map((l,i)=>`<div class="lyr-line" data-i="${i}">${esc(l.tx)}</div>`).join('')
-        : '<div class="lyr-empty">Pas de paroles disponibles</div>';
+    if (!lyricsData.length) {
+        lyrLines.innerHTML='<div class="lyr-empty">Pas de paroles disponibles</div>';
+        return;
+    }
+    if (!lyricsSync) {
+        // Plain text — toutes les lignes visibles d'un coup
+        lyrLines.innerHTML = lyricsData.map(l=>
+            `<div class="lyr-line" style="color:rgba(255,255,255,.85);font-size:22px">${esc(l.tx)}</div>`
+        ).join('');
+    } else {
+        lyrLines.innerHTML = lyricsData.map((l,i)=>
+            `<div class="lyr-line" data-i="${i}">${esc(l.tx)}</div>`
+        ).join('');
+    }
 }
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function syncLyrics(t) {
-    if (!lyricsData.length||!lyrOpen) return;
+    if (!lyricsData.length||!lyrOpen||!lyricsSync) return;  // plain text = pas de sync
     let idx=-1;
     for (let i=0;i<lyricsData.length;i++) { if(lyricsData[i].t<=t) idx=i; else break; }
     if (idx===curLyrLine) return;
@@ -826,9 +883,12 @@ function openPl() {
 }
 function closePl() { document.body.classList.remove('pl-open'); }
 
-let sx=0;
-document.getElementById('vpl').addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
-document.getElementById('vpl').addEventListener('touchend',  e=>{ if(e.changedTouches[0].clientX-sx>70) closePl(); },{passive:true});
+let sx=0, sy=0;
+document.getElementById('vpl').addEventListener('touchstart',e=>{ sx=e.touches[0].clientX; sy=e.touches[0].clientY; },{passive:true});
+document.getElementById('vpl').addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx, dy=Math.abs(e.changedTouches[0].clientY-sy);
+    if (dx>80 && dx>dy*2) closePl();  // swipe droit clairement horizontal
+},{passive:true});
 
 // ══════════════════ BINDINGS ══════════════════════════════════════════════
 document.getElementById('btn-play')    .addEventListener('click', togglePlay);

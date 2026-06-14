@@ -1,0 +1,23 @@
+window.JINGLES=[
+  "AlbaFrancia FM (1).mp3",
+  "AlbaFrancia FM (2).mp3",
+  "AlbaFrancia FM (3).mp3",
+  "AlbaFrancia FM (4).mp3",
+  "AlbaFrancia FM (5).mp3",
+  "AlbaFrancia FM (6).mp3",
+  "AlbaFrancia FM la france a tirana (1).mp3",
+  "AlbaFrancia FM la france a tirana.mp3",
+  "AlbaFrancia FM.mp3",
+  "AlbaFrancia Radioja (1).mp3",
+  "AlbaFrancia Radioja.mp3",
+  "AlbaFrancia! (1).mp3",
+  "AlbaFrancia!.mp3",
+  "La Francia Albania (1).mp3",
+  "La Francia Albania.mp3",
+  "La Francia en Albania (1).mp3",
+  "La Francia en Albania.mp3",
+  "Parisi în Tirană (1).mp3",
+  "Parisi în Tirană.mp3",
+  "Shijoni Rrugën (1).mp3",
+  "Shijoni Rrugën.mp3"
+];

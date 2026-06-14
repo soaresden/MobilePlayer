@@ -1,4 +1,5 @@
-window.PLAYLIST=[
+window.PLAYLIST_FR=[
+  "01-001 Gabriel.mp3",
   "1-01 L'aventurier.mp3",
   "1-02 Tu m'oublieras.mp3",
   "1-03 Ces soirées-là.mp3",
@@ -31,4 +32,7 @@ window.PLAYLIST=[
   "1-35 La Vie En Rose.mp3",
   "2-15 Monday, Tuesday... Laissez-moi danser.mp3",
   "4-08 Allumer le feu.mp3"
+];
+window.PLAYLIST_SQ=[
+  "Gabriel.mp3"
 ];

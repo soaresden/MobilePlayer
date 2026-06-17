@@ -356,7 +356,7 @@ function trackUrl(i) {
 async function refreshCacheMap() {
     if (!('caches' in window)) return;
     try {
-        const cache = await caches.open('albafm-v1');
+        const cache = await caches.open('albafm-v2');
         await Promise.all(tracks.map(async (_, i) => {
             const url = trackUrl(i);
             cacheMap[url] = !!(await cache.match(url));
@@ -383,7 +383,7 @@ async function cacheOneTrack(i) {
     try {
         const resp = await fetch(url);
         if (!resp.ok) return;
-        const cache = await caches.open('albafm-v1');
+        const cache = await caches.open('albafm-v2');
         await cache.put(url, resp);
         cacheMap[url] = true;
     } catch {}

@@ -1,10 +1,9 @@
-// AlbaFrancia FM — Service Worker
-// Stratégie : cache-first pour tout ce qui est déjà mis en cache,
-// network-first + mise en cache pour les MP3/LRC au premier accès.
+// AlbaFrancia FM — Service Worker v2
+// Fix principal : les navigateurs utilisent des Range requests pour l'audio.
+// Un SW qui renvoie 200 au lieu de 206 bloque la lecture. On gère ça ici.
 
-const CACHE = 'albafm-v1';
+const CACHE = 'albafm-v2';
 
-// Fichiers de l'app à mettre en cache immédiatement
 const APP_SHELL = [
     '/',
     '/index.html',
@@ -19,45 +18,85 @@ const APP_SHELL = [
 
 self.addEventListener('install', e => {
     e.waitUntil(
-        caches.open(CACHE).then(c => c.addAll(APP_SHELL)).then(() => self.skipWaiting())
+        caches.open(CACHE)
+            .then(c => c.addAll(APP_SHELL))
+            .then(() => self.skipWaiting())
     );
 });
 
 self.addEventListener('activate', e => {
     e.waitUntil(
-        caches.keys().then(keys =>
-            Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))
-        ).then(() => self.clients.claim())
+        caches.keys()
+            .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+            .then(() => self.clients.claim())
     );
 });
 
+// ── Fetch handler ─────────────────────────────────────────────────────────────
 self.addEventListener('fetch', e => {
-    const url = new URL(e.request.url);
+    // Range requests (audio streaming) → traitement spécial
+    if (e.request.headers.has('Range')) {
+        e.respondWith(handleRangeRequest(e.request));
+        return;
+    }
 
-    // Cache-first pour tout ce qui est déjà en cache
+    // Cache-first pour tout le reste
     e.respondWith(
         caches.match(e.request).then(cached => {
             if (cached) return cached;
-            // Network + mise en cache automatique
             return fetch(e.request).then(resp => {
                 if (!resp || resp.status !== 200 || resp.type === 'opaque') return resp;
                 const clone = resp.clone();
                 caches.open(CACHE).then(c => c.put(e.request, clone));
                 return resp;
-            }).catch(() => {
-                // Hors-ligne et pas en cache : réponse vide pour les MP3 (audio gère ça)
-                return new Response('', { status: 503 });
-            });
+            }).catch(() => new Response('', { status: 503 }));
         })
     );
 });
 
-// ── Message "precache" envoyé par le player ─────────────────────────────
-// Le player envoie { type:'PRECACHE', urls:[...] } avec la liste des MP3
+// ── Gestion des Range requests ────────────────────────────────────────────────
+// Le navigateur demande e.g. "Range: bytes=0-" ou "bytes=65536-131071"
+// On sert la tranche depuis le fichier complet stocké en cache (status 200).
+async function handleRangeRequest(request) {
+    const cache  = await caches.open(CACHE);
+    // Chercher le fichier complet (la clé cache est l'URL sans Range)
+    const cached = await cache.match(new Request(request.url));
+
+    if (!cached) {
+        // Pas en cache → réseau (online) ou erreur (offline)
+        try { return await fetch(request); }
+        catch { return new Response('', { status: 503 }); }
+    }
+
+    // Parser l'en-tête Range
+    const rangeHeader = request.headers.get('Range') || 'bytes=0-';
+    const m = /bytes=(\d*)-(\d*)/.exec(rangeHeader);
+    const blob  = await cached.blob();
+    const total = blob.size;
+
+    let start = m && m[1] !== '' ? parseInt(m[1]) : 0;
+    let end   = m && m[2] !== '' ? parseInt(m[2]) : total - 1;
+    // Cas "suffix-length" (bytes=-500)
+    if (m && m[1] === '' && m[2] !== '') { start = Math.max(0, total - parseInt(m[2])); end = total - 1; }
+    end = Math.min(end, total - 1);
+
+    const sliced = blob.slice(start, end + 1);
+    return new Response(sliced, {
+        status:     206,
+        statusText: 'Partial Content',
+        headers: {
+            'Content-Type':   cached.headers.get('Content-Type') || 'audio/mpeg',
+            'Content-Range':  `bytes ${start}-${end}/${total}`,
+            'Content-Length': String(sliced.size),
+            'Accept-Ranges':  'bytes',
+        },
+    });
+}
+
+// ── Message PRECACHE ──────────────────────────────────────────────────────────
 self.addEventListener('message', e => {
     if (e.data?.type !== 'PRECACHE') return;
-    const urls = e.data.urls || [];
-    precacheList(urls, e.source);
+    precacheList(e.data.urls || [], e.source);
 });
 
 async function precacheList(urls, client) {
@@ -65,14 +104,14 @@ async function precacheList(urls, client) {
     let done = 0;
     for (const url of urls) {
         try {
-            const already = await cache.match(url);
+            const already = await cache.match(new Request(url));
             if (!already) {
                 const resp = await fetch(url);
                 if (resp.ok) await cache.put(url, resp);
             }
         } catch {}
         done++;
-        client?.postMessage({ type:'PRECACHE_PROGRESS', done, total:urls.length });
+        client?.postMessage({ type: 'PRECACHE_PROGRESS', done, total: urls.length });
     }
-    client?.postMessage({ type:'PRECACHE_DONE', total:urls.length });
+    client?.postMessage({ type: 'PRECACHE_DONE', total: urls.length });
 }

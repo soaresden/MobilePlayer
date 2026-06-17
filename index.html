@@ -111,6 +111,13 @@
         .bbar { display:flex; align-items:center; justify-content:center; }
         .bbar .ibtn { color:var(--light); }
 
+        /* TOPBAR icon buttons (smaller than ibtn default) */
+        .topbar-actions { display:flex; gap:2px; }
+        .topbar-actions .ibtn { width:44px; height:44px; font-size:26px; }
+
+        /* Per-track cache dot */
+        .titem-cache { width:28px; text-align:center; font-size:20px; flex-shrink:0; }
+
         /* PLAYLIST VIEW */
         .plhdr { background:linear-gradient(to bottom,#4a2020,#2a1515 50%,#181818); padding:0 16px; flex-shrink:0; }
         .pltop { display:flex; align-items:center; justify-content:space-between; padding-top:54px; padding-bottom:12px; }
@@ -205,7 +212,10 @@
                         <button class="mbtn active" id="m-sq" title="Reprises albanaises seulement">🇦🇱</button>
                     </div>
                 </div>
-                <div style="width:40px"></div>
+                <div class="topbar-actions">
+                    <button class="ibtn dim" id="btn-lyrics"    title="Paroles"><i class="fa-solid fa-align-left"></i></button>
+                    <button class="ibtn dim" id="btn-cache-cur" title="Mettre en cache ce morceau"><i class="fa-solid fa-cloud-arrow-down" id="cache-cur-icon"></i></button>
+                </div>
             </div>
 
             <div class="art-wrap">
@@ -241,10 +251,6 @@
                 <button class="cbtn cbtn-mini"        id="btn-repeat"><i class="fa-solid fa-repeat"></i></button>
             </div>
 
-            <div class="bbar">
-                <button class="ibtn dim" id="btn-lyrics" title="Paroles"><i class="fa-solid fa-align-left"></i></button>
-                <button class="ibtn dim" id="btn-cache"  title="État du cache hors-ligne" style="pointer-events:none"><i class="fa-solid fa-cloud-arrow-down" id="cache-icon"></i></button>
-            </div>
         </div>
     </div>
 
@@ -254,7 +260,7 @@
             <div class="pltop">
                 <button class="ibtn" id="btn-close-pl"><i class="fa-solid fa-chevron-left"></i></button>
                 <span class="pltop-ttl">AlbaFrancia FM</span>
-                <div style="width:40px"></div>
+                <button class="ibtn" id="btn-cache-all" title="Tout mettre en cache hors-ligne" style="color:var(--light)"><i class="fa-solid fa-cloud-arrow-down" id="cache-all-icon"></i></button>
             </div>
             <div class="plhero">
                 <img id="pl-cover" class="plcover" src="cover.png" alt="AlbaFrancia FM">
@@ -338,6 +344,77 @@ let lyrOpen    = false;
 let curLyrLine = -1;
 
 function rng(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+
+// ══════════════════ CACHE MAP ═════════════════════════════════════════════
+const cacheMap = {};  // url → true
+
+function trackUrl(i) {
+    const t = tracks[i];
+    return location.origin + '/' + t.dir + encodeURIComponent(t.file);
+}
+
+async function refreshCacheMap() {
+    if (!('caches' in window)) return;
+    try {
+        const cache = await caches.open('albafm-v1');
+        await Promise.all(tracks.map(async (_, i) => {
+            const url = trackUrl(i);
+            cacheMap[url] = !!(await cache.match(url));
+        }));
+    } catch {}
+}
+
+function updateCacheIcons() {
+    // Met à jour uniquement les icônes cache dans la liste sans re-render complet
+    tList.querySelectorAll('[data-kind="music"]').forEach(el => {
+        const i = +el.dataset.idx;
+        const dot = el.querySelector('.titem-cache i');
+        if (!dot) return;
+        const cached = !!cacheMap[trackUrl(i)];
+        dot.className = cached ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-arrow-down';
+        dot.style.color = cached ? 'var(--green)' : 'var(--mid)';
+        dot.style.opacity = cached ? '1' : '0.4';
+    });
+}
+
+async function cacheOneTrack(i) {
+    const url = trackUrl(i);
+    if (cacheMap[url]) return;  // déjà en cache
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const cache = await caches.open('albafm-v1');
+        await cache.put(url, resp);
+        cacheMap[url] = true;
+    } catch {}
+}
+
+async function cacheCurrentTrack() {
+    if (isJingle) return;
+    const ico = document.getElementById('cache-cur-icon');
+    const btn = document.getElementById('btn-cache-cur');
+    ico.className = 'fa-solid fa-spinner fa-spin';
+    await cacheOneTrack(curIdx);
+    const cached = !!cacheMap[trackUrl(curIdx)];
+    if (cached) {
+        ico.className = 'fa-solid fa-cloud-check';
+        btn.style.color = 'var(--green)';
+        btn.classList.remove('dim');
+    } else {
+        ico.className = 'fa-solid fa-cloud-arrow-down';
+    }
+    updateCacheIcons();
+}
+
+function refreshCacheBtn() {
+    if (isJingle) return;
+    const ico = document.getElementById('cache-cur-icon');
+    const btn = document.getElementById('btn-cache-cur');
+    const cached = !!cacheMap[trackUrl(curIdx)];
+    ico.className = cached ? 'fa-solid fa-cloud-check' : 'fa-solid fa-cloud-arrow-down';
+    btn.style.color = cached ? 'var(--green)' : '';
+    btn.classList.toggle('dim', !cached);
+}
 
 // ══════════════════ DOM ═══════════════════════════════════════════════════
 const audio      = document.getElementById('audio');
@@ -577,6 +654,7 @@ function loadTrack(idx, play=false) {
     else loadMeta(idx, ()=>refreshPlayer());
 
     tryLoadLrc(idx);
+    refreshCacheBtn();
 
     if (play) {
         audio.play().then(()=>{ isPlaying=true; refreshBtn(); artwork.classList.add('pulse'); }).catch(()=>{});
@@ -816,13 +894,18 @@ function renderMusicItem(i, el) {
     const d=el||tList.querySelector(`[data-kind="music"][data-idx="${i}"]`); if(!d)return;
     const now=(i===curIdx&&!isJingle);
     const flag = tracks[i]?.lang==='fr' ? '🇫🇷' : '🇦🇱';
+    const cached = !!cacheMap[trackUrl(i)];
+    const cacheIcoClass = cached ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-arrow-down';
+    const cacheColor    = cached ? 'var(--green)' : 'var(--mid)';
+    const cacheOpacity  = cached ? '1' : '0.4';
     d.innerHTML=
         `<div class="tnum${now?' now':''}">${now?'<i class="fa-solid fa-volume-high"></i>':i+1}</div>
          <div class="tiinfo">
            <div class="tittl${now?' now':''}">${esc(getTitle(i))}</div>
            <div class="tartst">${esc(getArtist(i))}</div>
          </div>
-         <span class="titem-flag">${flag}</span>`;
+         <span class="titem-flag">${flag}</span>
+         <span class="titem-cache"><i class="${cacheIcoClass}" style="color:${cacheColor};opacity:${cacheOpacity}"></i></span>`;
 }
 function renderJingleItem(f, el) {
     const jIdx=JINGLES.indexOf(f);
@@ -852,7 +935,7 @@ function setMode(m) {
     document.getElementById('m-sq')  .classList.toggle('active', m==='sq');
     buildTracks();
     buildShuffle();
-    buildList();
+    refreshCacheMap().then(()=>{ buildList(); });
     if (tracks.length) {
         if (JINGLES.length) prepJingle();
         else loadTrack(0);
@@ -883,7 +966,18 @@ document.getElementById('btn-next')    .addEventListener('click', nextTrack);
 document.getElementById('btn-prev')    .addEventListener('click', prevTrack);
 document.getElementById('btn-open-pl') .addEventListener('click', openPl);
 document.getElementById('btn-close-pl').addEventListener('click', closePl);
-document.getElementById('btn-lyrics')  .addEventListener('click', openLyrics);
+document.getElementById('btn-lyrics')    .addEventListener('click', openLyrics);
+document.getElementById('btn-cache-cur') .addEventListener('click', cacheCurrentTrack);
+document.getElementById('btn-cache-all') .addEventListener('click', async () => {
+    const ico = document.getElementById('cache-all-icon');
+    ico.className = 'fa-solid fa-spinner fa-spin';
+    // Mettre en cache tous les morceaux visibles (selon le mode courant)
+    for (let i=0; i<tracks.length; i++) await cacheOneTrack(i);
+    await refreshCacheMap();
+    updateCacheIcons();
+    ico.className = 'fa-solid fa-cloud-check';
+    document.getElementById('btn-cache-all').style.color = 'var(--green)';
+});
 document.getElementById('btn-close-lyr').addEventListener('click', closeLyrics);
 document.getElementById('lyr-play').addEventListener('click', togglePlay);
 document.getElementById('lyr-prev').addEventListener('click', prevTrack);
@@ -907,106 +1001,28 @@ document.getElementById('btn-repeat').addEventListener('click',()=>{
     document.getElementById('btn-repeat').classList.toggle('active',isRepeat);
 });
 
-// ══════════════════ SERVICE WORKER + CACHE ════════════════════════════════
-(function() {
-    if (!('serviceWorker' in navigator)) return;
-
-    const bar      = document.getElementById('cache-bar');
-    const barFill  = document.getElementById('cache-fill');
-    const barPct   = document.getElementById('cache-bar-pct');
-    const barLbl   = document.getElementById('cache-bar-lbl');
-    const cacheBtn = document.getElementById('btn-cache');
-    const cacheIco = document.getElementById('cache-icon');
-
-    function showBar(msg, pct) {
-        bar.classList.add('show');
-        barLbl.textContent = msg;
-        barFill.style.width = pct + '%';
-        barPct.textContent  = Math.round(pct) + '%';
-    }
-    function hideBar() { setTimeout(()=>bar.classList.remove('show'), 2000); }
-
-    function setCacheIcon(state) {
-        // state: 'none' | 'loading' | 'ok'
-        if (state === 'ok') {
-            cacheBtn.classList.remove('dim');
-            cacheBtn.style.color = 'var(--green)';
-            cacheIco.className = 'fa-solid fa-cloud-check';
-            cacheBtn.title = 'Disponible hors-ligne ✓';
-        } else if (state === 'loading') {
-            cacheBtn.classList.remove('dim');
-            cacheBtn.style.color = '#fff';
-            cacheIco.className = 'fa-solid fa-cloud-arrow-down';
-            cacheBtn.title = 'Mise en cache en cours…';
-        } else {
-            cacheBtn.classList.add('dim');
-            cacheBtn.style.color = '';
-            cacheIco.className = 'fa-solid fa-cloud-arrow-down';
-            cacheBtn.title = 'Non disponible hors-ligne';
-        }
-    }
-
-    // Vérifier si les fichiers albanais sont déjà en cache
-    async function checkAlreadyCached() {
-        try {
-            const cache = await caches.open('albafm-v1');
-            const base = location.origin;
-            const toCheck = [
-                ...PL_SQ.slice(0, 2).map(f => `${base}/suno/${encodeURIComponent(f)}`),
-                ...JINGLES.slice(0, 1).map(f => `${base}/jingles/${encodeURIComponent(f)}`),
-            ].filter(Boolean);
-            if (!toCheck.length) return false;
-            const results = await Promise.all(toCheck.map(u => cache.match(u)));
-            return results.every(Boolean);
-        } catch { return false; }
-    }
-
-    navigator.serviceWorker.register('/sw.js').then(async reg => {
-
-        // Afficher l'état initial
-        const already = await checkAlreadyCached();
-        if (already) { setCacheIcon('ok'); return; }  // déjà en cache, rien à faire
-
-        // Écouter les messages de progression du SW
+// ══════════════════ SERVICE WORKER ════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+        // Barre de progression pendant le cache-all via SW
         navigator.serviceWorker.addEventListener('message', e => {
             if (e.data?.type === 'PRECACHE_PROGRESS') {
                 const pct = e.data.done / e.data.total * 100;
-                showBar(`Mise en cache hors-ligne… (${e.data.done}/${e.data.total})`, pct);
-                setCacheIcon('loading');
+                const bar = document.getElementById('cache-bar');
+                bar.classList.add('show');
+                document.getElementById('cache-bar-lbl').textContent = `Mise en cache… (${e.data.done}/${e.data.total})`;
+                document.getElementById('cache-fill').style.width = pct + '%';
+                document.getElementById('cache-bar-pct').textContent = Math.round(pct) + '%';
             } else if (e.data?.type === 'PRECACHE_DONE') {
-                showBar('Disponible hors-ligne ✓', 100);
-                hideBar();
-                setCacheIcon('ok');
+                document.getElementById('cache-bar-lbl').textContent = 'Disponible hors-ligne ✓';
+                document.getElementById('cache-fill').style.width = '100%';
+                document.getElementById('cache-bar-pct').textContent = '100%';
+                setTimeout(()=>document.getElementById('cache-bar').classList.remove('show'), 2000);
+                refreshCacheMap().then(updateCacheIcons);
             }
         });
-
-        // Lancer le précache uniquement pour SQ + jingles (pas le français)
-        function startPrecache() {
-            const sw = navigator.serviceWorker.controller;
-            if (!sw) return;
-            if (!PL_SQ.length && !JINGLES.length) return;
-
-            const base = location.origin;
-            const urls = [
-                ...PL_SQ.map(f   => `${base}/suno/${encodeURIComponent(f)}`),
-                ...PL_SQ.map(f   => `${base}/suno/${encodeURIComponent(f.replace(/\.mp3$/i,'.lrc'))}`),
-                ...JINGLES.map(f => `${base}/jingles/${encodeURIComponent(f)}`),
-                `${base}/cover.png`,
-            ];
-
-            const total = PL_SQ.length + JINGLES.length;
-            showBar(`Préparation du cache hors-ligne… (0/${total})`, 0);
-            setCacheIcon('loading');
-            sw.postMessage({ type: 'PRECACHE', urls });
-        }
-
-        if (navigator.serviceWorker.controller) {
-            startPrecache();
-        } else {
-            navigator.serviceWorker.addEventListener('controllerchange', startPrecache, { once: true });
-        }
     }).catch(()=>{});
-})();
+}
 
 // ══════════════════ CLOCK ═════════════════════════════════════════════════
 const clk=document.getElementById('sbar-time');
@@ -1017,7 +1033,7 @@ tick(); setInterval(tick,15000);
 if (PL_FR.length || PL_SQ.length) {
     buildTracks();
     buildShuffle();
-    buildList();
+    refreshCacheMap().then(()=>buildList());
     if (JINGLES.length) prepJingle();
     else loadTrack(0);
 } else {

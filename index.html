@@ -519,8 +519,8 @@ function id3Uslt(d) {
 }
 
 // ══════════════════ TRACK MODEL ═══════════════════════════════════════════
-function mkFR(file) { return { file, dir:'music/', lang:'fr', lrcSuffix:'.lrcsource' }; }
-function mkSQ(file) { return { file, dir:'suno/',  lang:'sq', lrcSuffix:'.lrc' }; }
+function mkFR(file) { return { file, dir:'music/', lang:'fr' }; }
+function mkSQ(file) { return { file, dir:'suno/',  lang:'sq' }; }
 
 function buildTracks() {
     if (mode === 'fr') {
@@ -653,7 +653,7 @@ function loadTrack(idx, play=false) {
     if (metaDb[trackKey(idx)]) refreshPlayer();
     else loadMeta(idx, ()=>refreshPlayer());
 
-    tryLoadLrc(idx);
+    useLyrFallback(idx);
     refreshCacheBtn();
 
     if (play) {
@@ -774,33 +774,13 @@ artwork.addEventListener('click', () => {
     }
 });
 
-// ══════════════════ LRC LYRICS ════════════════════════════════════════════
-function tryLoadLrc(idx) {
-    const t    = tracks[idx];
-    const name = t.file.replace(/\.mp3$/i, '');
-    const url  = t.dir + encodeURIComponent(name + t.lrcSuffix);
-    fetch(url)
-        .then(r => r.ok ? r.text() : Promise.reject())
-        .then(txt => {
-            const parsed = parseLrc(txt);
-            if (parsed.length) {
-                lyricsData = parsed; lyricsSync = true;
-            } else {
-                // LRC file exists but no timestamps — show as plain text
-                lyricsData = plainLyrics(txt); lyricsSync = false;
-            }
-            updateLyrBtn(); if (lyrOpen) renderLyrics();
-        })
-        .catch(() => useLyrFallback(idx));
-}
+// ══════════════════ PAROLES (ID3 USLT uniquement) ════════════════════════
 function useLyrFallback(idx) {
-    // Fallback : paroles embarquées dans l'ID3 (frame USLT)
     const key = trackKey(idx);
     const emb = metaDb[key]?.lyrics;
     if (emb) {
         lyricsData = plainLyrics(emb); lyricsSync = false;
     } else if (!metaDb[key]) {
-        // Meta pas encore chargée → réessayer quand elle arrive
         loadMeta(idx, ()=>useLyrFallback(idx));
         return;
     } else {
@@ -810,15 +790,9 @@ function useLyrFallback(idx) {
 }
 function plainLyrics(txt) {
     return txt.split(/\r?\n/)
-        .map(l=>l.replace(/^\[.*?\]/g,'').trim())  // strip any LRC tags
+        .map(l=>l.replace(/^\[.*?\]/g,'').trim())
         .filter(l=>l)
-        .map(tx=>({ t:-1, tx }));  // t=-1 = pas de timestamp
-}
-function parseLrc(txt) {
-    const rx=/\[(\d{1,2}):(\d{2}(?:\.\d+)?)\](.*)/;
-    return txt.split('\n')
-        .map(l=>{ const m=rx.exec(l); return m?{t:+m[1]*60 + +m[2], tx:m[3].trim()}:null; })
-        .filter(l=>l&&l.tx).sort((a,b)=>a.t-b.t);
+        .map(tx=>({ t:-1, tx }));
 }
 function updateLyrBtn() {
     const btn=document.getElementById('btn-lyrics');

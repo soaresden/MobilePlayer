@@ -1377,14 +1377,19 @@ if ('serviceWorker' in navigator) {
 // ══════════════════ TAILLE DES POLICES ════════════════════════════════════
 (function() {
     let scale = parseFloat(localStorage.getItem('albafm-uiscale') || '1');
-    const apply = v => {
-        scale = Math.min(2, Math.max(0.5, v));
+    const STEP = 0.2;
+    const flash = btn => { btn.style.opacity='1'; setTimeout(()=>btn.style.opacity='',200); };
+    const apply = (v, btn) => {
+        const next = Math.min(2.4, Math.max(0.5, v));
+        if (next === scale) return;
+        scale = next;
         document.documentElement.style.setProperty('--s', scale);
         localStorage.setItem('albafm-uiscale', scale);
+        if (btn) flash(btn);
     };
     apply(scale);
-    document.getElementById('btn-zoom-out')?.addEventListener('click', () => apply(scale - 0.1));
-    document.getElementById('btn-zoom-in') ?.addEventListener('click', () => apply(scale + 0.1));
+    document.getElementById('btn-zoom-out')?.addEventListener('click', e => apply(scale - STEP, e.currentTarget));
+    document.getElementById('btn-zoom-in') ?.addEventListener('click', e => apply(scale + STEP, e.currentTarget));
 })();
 
 // ══════════════════ PLEIN ÉCRAN ═══════════════════════════════════════════

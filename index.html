@@ -10,19 +10,6 @@
     <script src="playlist.js"></script>
     <script src="jingles.js"></script>
     <style>
-        /* CACHE PROGRESS BAR */
-        #cache-bar { position:fixed; bottom:0; left:0; right:0; z-index:500;
-            background:rgba(0,0,0,.85); padding:10px 16px 14px;
-            display:flex; flex-direction:column; gap:6px;
-            transform:translateY(100%); transition:transform .3s; }
-        #cache-bar.show { transform:translateY(0); }
-        #cache-bar-top { display:flex; justify-content:space-between; align-items:center; }
-        #cache-bar-lbl { font-size:24px; color:var(--light); }
-        #cache-bar-pct { font-size:24px; font-weight:700; color:var(--green); }
-        #cache-rail { height:3px; background:rgba(255,255,255,.12); border-radius:2px; }
-        #cache-fill { height:100%; width:0%; background:var(--green); border-radius:2px; transition:width .4s; }
-    </style>
-    <style>
         :root { --green:#1DB954; --black:#121212; --dark:#181818; --grey:#282828; --mid:#535353; --light:#b3b3b3; }
         * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; user-select:none; }
         html,body { height:100%; overflow:hidden; background:var(--black);
@@ -213,15 +200,6 @@
 </head>
 <body>
 
-    <!-- CACHE PROGRESS -->
-    <div id="cache-bar">
-        <div id="cache-bar-top">
-            <span id="cache-bar-lbl">Mise en cache hors-ligne…</span>
-            <span id="cache-bar-pct">0%</span>
-        </div>
-        <div id="cache-rail"><div id="cache-fill"></div></div>
-    </div>
-
     <div class="sbar">
         <span class="sbar-time" id="sbar-time">9:41</span>
         <div class="sbar-icons">
@@ -372,7 +350,7 @@ const JINGLE_D  = 'jingles/';
 const COVER     = 'cover.png';
 
 // ══════════════════ STATE ═════════════════════════════════════════════════
-// track = { file, dir, lrcPath, lang }
+// track = { file, dir, lang }
 let tracks    = [];
 let mode      = 'sq';     // 'fr' | 'sq' | 'both'
 const metaDb  = {};       // "dir+file" → { title, artist, coverUrl }
@@ -381,7 +359,7 @@ let isPlaying = false;
 let isShuffle = true;
 let isRepeat  = false;
 let shuf      = [];
-// 0 = cover radio (cover.png)  1 = pochette MP3  2 = paroles (lyrics ouvertes)
+// 0 = cover.png  1 = pochette MP3
 let artState = 0;
 
 // jingle state
@@ -726,7 +704,7 @@ async function loadTrack(idx, play=false) {
         if (!blobUrlMap[url]) blobUrlMap[url] = URL.createObjectURL(blob);
         audio.src = blobUrlMap[url];
     } else {
-        audio.src = t.dir + encodeURIComponent(t.file);
+        audio.src = url; // URL réseau absolue (même que trackUrl)
     }
     tTitle.innerHTML    = '<span class="spin"></span>';
     tArtist.textContent = CFG.radioArtist;
@@ -823,7 +801,7 @@ async function _setJingleSrc(j) {
         if (!blobUrlMap[url]) blobUrlMap[url] = URL.createObjectURL(blob);
         audio.src = blobUrlMap[url];
     } else {
-        audio.src = JINGLE_D + encodeURIComponent(j);
+        audio.src = jingleUrl(j); // URL absolue cohérente
     }
 }
 async function prepJingle() {
@@ -940,7 +918,6 @@ function closeLyrics() {
 function buildList() {
     tList.innerHTML='';
     plCount.textContent = tracks.length + ' titres · ' + JINGLES.length + ' jingle';
-    initDragDrop();
 
     tracks.forEach((t,i)=>{
         const d=document.createElement('div');
@@ -989,9 +966,6 @@ function renderMusicItem(i, el) {
     const now=(i===curIdx&&!isJingle);
     const flag = tracks[i]?.lang==='fr' ? '🇫🇷' : '🇦🇱';
     const cached = !!cacheMap[trackUrl(i)];
-    const cacheIcoClass = cached ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-arrow-down';
-    const cacheColor    = cached ? 'var(--green)' : 'var(--mid)';
-    const cacheOpacity  = cached ? '1' : '0.4';
     const cIco = cached ? 'fa-solid fa-cloud-check' : 'fa-solid fa-cloud-arrow-down';
     const cCol = cached ? 'var(--green)' : 'var(--mid)';
     const cOpa = cached ? '1' : '0.5';
@@ -1165,7 +1139,7 @@ function closeDl() { document.body.classList.remove('dl-open'); }
 // ══════════════════ DRAG & DROP PLAYLIST ════════════════════════════════════
 let _drgIdx=null, _drgEl=null, _drgOver=null;
 
-function initDragDrop() {
+function initDragDrop() { // appelé une seule fois (pas dans buildList)
     tList.addEventListener('touchstart', e=>{
         const h=e.target.closest('.drag-handle'); if(!h) return;
         const item=h.closest('[data-kind="music"]'); if(!item) return;
@@ -1312,6 +1286,7 @@ const tick=()=>{ const d=new Date(); clk.textContent=d.getHours()+':'+String(d.g
 tick(); setInterval(tick,15000);
 
 // ══════════════════ INIT ══════════════════════════════════════════════════
+initDragDrop(); // une seule fois, écoute sur tList par délégation
 if (PL_FR.length || PL_SQ.length) {
     buildTracks();
     buildShuffle();

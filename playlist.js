@@ -1,5 +1,4 @@
-// Généré par config.html — 18/06/2026 09:09:58
-window.PLAYLIST_FR = [
+window.PLAYLIST_FR=[
   "01-001 Gabriel.mp3",
   "1-01 L'aventurier.mp3",
   "1-02 Tu m'oublieras.mp3",
@@ -16,7 +15,6 @@ window.PLAYLIST_FR = [
   "1-16 Elle a les yeux revolver.mp3",
   "1-17 Alors on danse - Radio Edit.mp3",
   "1-18 Je l'aime à mourir.mp3",
-  "1-19 Les sunlights des tropiques.mp3",
   "1-20 Balance ton quoi.mp3",
   "1-21 J'aimerais trop (feat. SAP).mp3",
   "1-22 Le lundi au soleil.mp3",
@@ -34,163 +32,37 @@ window.PLAYLIST_FR = [
   "2-15 Monday, Tuesday... Laissez-moi danser.mp3",
   "4-08 Allumer le feu.mp3"
 ];
-
-window.PLAYLIST_SQ = [
-  "2m37s_1-34 Les Champs-Elysées_x4.mp3",
-  "2m43s_1-18 Je l'aime à mourir_x4.mp3",
-  "2m59s_1-35 La Vie En Rose_x4.mp3",
-  "3m26s_1-17 Alors on danse - Radio Edit_x4.mp3",
-  "3m33s_1-23 Dernière danse_x4.mp3",
-  "3m36s_1-16 Elle a les yeux revolver_x4.mp3",
-  "3m9s_1-20 Balance ton quoi_x4.mp3",
-  "Angela - Saian Supa Crew.mp3",
-  "DjaDja - Aya Nakamura.mp3",
-  "Emmenez-moi.mp3",
-  "Gabriel - Najoua Belyzel.mp3",
-  "J'Irai ou Tu Iras - Celine Dion.mp3",
-  "L'Aventurier - Indochine.mp3",
-  "La Tribu de Dana - Manau.mp3",
-  "Laissez-Moi Danser - Dalida.mp3",
-  "Le Lundi Au Soleil - Claude Francois.mp3",
-  "Mistral Gagnant - Renaud.mp3",
-  "Place des Grands Hommes - Patrick Bruel.mp3",
-  "Savoir Aimer.mp3",
-  "Tu M'Oublieras - Larusso.mp3",
-  "À nos Souvenirs - Trois Cafe Gourmands.mp3"
-];
-
-// Associations manuelles FR ↔ AL (éditez via config.html)
-window.PLAYLIST_PAIRS = [
-  {
-    "fr": "01-001 Gabriel.mp3",
-    "sq": "Gabriel - Najoua Belyzel.mp3"
-  },
-  {
-    "fr": "1-01 L'aventurier.mp3",
-    "sq": "L'Aventurier - Indochine.mp3"
-  },
-  {
-    "fr": "1-02 Tu m'oublieras.mp3",
-    "sq": "Tu M'Oublieras - Larusso.mp3"
-  },
-  {
-    "fr": "1-03 Ces soirées-là.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-04 Savoir aimer.mp3",
-    "sq": "Savoir Aimer.mp3"
-  },
-  {
-    "fr": "1-05 Tchikita.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-06 Emmenez-moi.mp3",
-    "sq": "Emmenez-moi.mp3"
-  },
-  {
-    "fr": "1-07 À nos souvenirs.mp3",
-    "sq": "À nos Souvenirs - Trois Cafe Gourmands.mp3"
-  },
-  {
-    "fr": "1-09 Djadja.mp3",
-    "sq": "DjaDja - Aya Nakamura.mp3"
-  },
-  {
-    "fr": "1-11 Foule sentimentale.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-12 La tribu de Dana.mp3",
-    "sq": "La Tribu de Dana - Manau.mp3"
-  },
-  {
-    "fr": "1-13 Wati by Night.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-14 Ma philosophie.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-16 Elle a les yeux revolver.mp3",
-    "sq": "3m36s_1-16 Elle a les yeux revolver_x4.mp3"
-  },
-  {
-    "fr": "1-17 Alors on danse - Radio Edit.mp3",
-    "sq": "3m26s_1-17 Alors on danse - Radio Edit_x4.mp3"
-  },
-  {
-    "fr": "1-18 Je l'aime à mourir.mp3",
-    "sq": "2m43s_1-18 Je l'aime à mourir_x4.mp3"
-  },
-  {
-    "fr": "1-19 Les sunlights des tropiques.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-20 Balance ton quoi.mp3",
-    "sq": "3m9s_1-20 Balance ton quoi_x4.mp3"
-  },
-  {
-    "fr": "1-21 J'aimerais trop (feat. SAP).mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-22 Le lundi au soleil.mp3",
-    "sq": "Le Lundi Au Soleil - Claude Francois.mp3"
-  },
-  {
-    "fr": "1-23 Dernière danse.mp3",
-    "sq": "3m33s_1-23 Dernière danse_x4.mp3"
-  },
-  {
-    "fr": "1-24 Place des grands hommes.mp3",
-    "sq": "Place des Grands Hommes - Patrick Bruel.mp3"
-  },
-  {
-    "fr": "1-25 Angela.mp3",
-    "sq": "Angela - Saian Supa Crew.mp3"
-  },
-  {
-    "fr": "1-28 Nuit de folie.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-29 Les lacs du Connemara.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-30 J'irai où tu iras (with Jean-Jacques Goldman).mp3",
-    "sq": "J'Irai ou Tu Iras - Celine Dion.mp3"
-  },
-  {
-    "fr": "1-31 Les démons de minuit.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-32 Mistral gagnant.mp3",
-    "sq": "Mistral Gagnant - Renaud.mp3"
-  },
-  {
-    "fr": "1-33 Confessions Nocturnes.mp3",
-    "sq": null
-  },
-  {
-    "fr": "1-34 Les Champs-Elysées.mp3",
-    "sq": "2m37s_1-34 Les Champs-Elysées_x4.mp3"
-  },
-  {
-    "fr": "1-35 La Vie En Rose.mp3",
-    "sq": "2m59s_1-35 La Vie En Rose_x4.mp3"
-  },
-  {
-    "fr": "2-15 Monday, Tuesday... Laissez-moi danser.mp3",
-    "sq": null
-  },
-  {
-    "fr": "4-08 Allumer le feu.mp3",
-    "sq": null
-  }
+window.PLAYLIST_SQ=[
+  "01-001 Rrëfim Nate (Confession Nocturne).mp3",
+  "01-002 Wati Natën (Wati by Night).mp3",
+  "01-003 Shanzelize (Les Champs-Élysées).mp3",
+  "01-004 Do Doja Shumë (J'aimerais trop).mp3",
+  "01-005 Kujtimet Tona (À nos Souvenirs).mp3",
+  "01-006 Ajo Ka Sytë Revolver (Elle a les yeux revolver).mp3",
+  "01-007 Gabrieli (Gabriel).mp3",
+  "01-008 Liqenet e Konemarës (Les Lacs du Connemara).mp3",
+  "01-009 Ato Mbrëmje (Ces soirées-là).mp3",
+  "01-010 E Hëna në Diell (Le lundi au soleil).mp3",
+  "01-011 Kërcimi i Fundit (Dernière Danse).mp3",
+  "01-012 Aventurieri (L'Aventurier).mp3",
+  "01-013 Fisi i Danës (La Tribu de Dana).mp3",
+  "01-014 Sheshi i Burrave të Mëdhenj (Place des Grands Hommes).mp3",
+  "01-015 DjaDja (DjaDja).mp3",
+  "01-016 Hidhe Çfarë Ke (Balance ton quoi).mp3",
+  "01-017 E Dua Deri në Vdekje (Je l'aime à mourir).mp3",
+  "01-018 Më Merr me Vete (Emmenez-moi).mp3",
+  "01-019 Mistrali Fitues (Mistral Gagnant).mp3",
+  "01-020 Të Dish të Duash (Savoir Aimer).mp3",
+  "01-021 Turmë Ndjenjash (Foule sentimentale).mp3",
+  "01-022 Do Më Harrosh (Tu m'oublieras).mp3",
+  "01-023 Do Shkoj Ku Shkon Ti (J'irai où tu iras).mp3",
+  "01-024 Anxhela (Angela).mp3",
+  "01-025 Natë e Çmendur (Nuit de Folie).mp3",
+  "01-026 Lërmë të Kërcej (Laissez-moi danser).mp3",
+  "01-027 Ndez Zjarrin (Allumer le Feu).mp3",
+  "01-028 Jeta në Rozë (La Vie en Rose).mp3",
+  "01-029 Demonët e Mesnatës (Les Démons de Minuit).mp3",
+  "01-030 Filozofia Ime (Ma Philosophie).mp3",
+  "01-031 Çikita (Tchikita).mp3",
+  "01-032 Atëherë Kërcejmë (Alors on danse).mp3"
 ];

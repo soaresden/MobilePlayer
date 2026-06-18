@@ -40,9 +40,11 @@
         #vp   { transform:translateX(0);    z-index:1; }
         #vpl  { transform:translateX(100%); z-index:2; }
         #vlyr { transform:translateY(100%); z-index:3; }
+        #vdl  { transform:translateY(100%); z-index:4; background:var(--dark); }
         body.pl-open  #vp  { transform:translateX(-28%); }
         body.pl-open  #vpl { transform:translateX(0); }
         body.lyr-open #vlyr { transform:translateY(0); }
+        body.dl-open  #vdl  { transform:translateY(0); }
         #vp::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.55);
             opacity:0; transition:opacity .38s; pointer-events:none; z-index:10; }
         body.pl-open #vp::after { opacity:1; }
@@ -115,8 +117,37 @@
         .topbar-actions { display:flex; gap:2px; }
         .topbar-actions .ibtn { width:44px; height:44px; font-size:26px; }
 
-        /* Per-track cache dot */
-        .titem-cache { width:28px; text-align:center; font-size:20px; flex-shrink:0; }
+        /* Per-track cache icon */
+        .titem-cache { width:34px; text-align:center; font-size:22px; flex-shrink:0; cursor:pointer; padding:4px 0; }
+        /* Drag handle */
+        .drag-handle { width:32px; text-align:center; font-size:22px; flex-shrink:0;
+            color:var(--mid); opacity:.5; cursor:grab; padding:4px 0; touch-action:none; }
+        .titem.dragging  { opacity:.35; background:rgba(255,255,255,.04); }
+        .titem.drop-top  { border-top:2px solid var(--green); }
+        .titem.drop-bot  { border-bottom:2px solid var(--green); }
+
+        /* DOWNLOAD MANAGER VIEW */
+        .dl-hdr { display:flex; align-items:center; padding:54px 8px 14px; background:var(--grey); flex-shrink:0; }
+        .dl-hdr-info { flex:1; padding:0 10px; overflow:hidden; }
+        .dl-hdr-ttl { font-size:28px; font-weight:700; }
+        .dl-hdr-sub { font-size:20px; color:var(--light); margin-top:2px; }
+        .dl-prog-wrap { padding:10px 16px 4px; flex-shrink:0; }
+        .dl-prog-rail { height:5px; background:rgba(255,255,255,.12); border-radius:3px; }
+        .dl-prog-fill { height:100%; width:0%; background:var(--green); border-radius:3px; transition:width .4s; }
+        .dl-prog-lbl  { font-size:19px; color:var(--light); margin-top:5px; }
+        .dl-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:40px; }
+        .dl-body::-webkit-scrollbar { display:none; }
+        .dl-section { padding:18px 16px 6px; font-size:19px; font-weight:700; color:var(--mid);
+            text-transform:uppercase; letter-spacing:1px; border-top:1px solid rgba(255,255,255,.06); }
+        .dl-item { display:flex; align-items:center; padding:10px 16px; gap:10px;
+            border-bottom:1px solid rgba(255,255,255,.05); }
+        .dl-item-info { flex:1; overflow:hidden; }
+        .dl-item-ttl { font-size:26px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .dl-item-sub { font-size:19px; color:var(--light); margin-top:2px; }
+        .dl-item-flag { font-size:24px; flex-shrink:0; }
+        .dl-item-btn  { width:50px; height:50px; background:none; border:none; font-size:28px;
+            display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:var(--light); }
+        .dl-item-btn.cached { color:var(--green); }
 
         /* PLAYLIST VIEW */
         .plhdr { background:linear-gradient(to bottom,#4a2020,#2a1515 50%,#181818); padding:0 16px; flex-shrink:0; }
@@ -213,8 +244,8 @@
                     </div>
                 </div>
                 <div class="topbar-actions">
-                    <button class="ibtn dim" id="btn-lyrics"    title="Paroles"><i class="fa-solid fa-align-left"></i></button>
-                    <button class="ibtn dim" id="btn-cache-cur" title="Mettre en cache ce morceau"><i class="fa-solid fa-cloud-arrow-down" id="cache-cur-icon"></i></button>
+                    <button class="ibtn dim" id="btn-lyrics"  title="Paroles"><i class="fa-solid fa-align-left"></i></button>
+                    <button class="ibtn dim" id="btn-open-dl" title="Téléchargements hors-ligne"><i class="fa-solid fa-cloud-arrow-down"></i></button>
                 </div>
             </div>
 
@@ -260,7 +291,7 @@
             <div class="pltop">
                 <button class="ibtn" id="btn-close-pl"><i class="fa-solid fa-chevron-left"></i></button>
                 <span class="pltop-ttl">AlbaFrancia FM</span>
-                <button class="ibtn" id="btn-cache-all" title="Tout mettre en cache hors-ligne" style="color:var(--light)"><i class="fa-solid fa-cloud-arrow-down" id="cache-all-icon"></i></button>
+                <div style="width:60px"></div>
             </div>
             <div class="plhero">
                 <img id="pl-cover" class="plcover" src="cover.png" alt="AlbaFrancia FM">
@@ -298,6 +329,23 @@
             <button class="cbtn cbtn-play" id="lyr-play"><i class="fa-solid fa-play" id="lyr-play-icon"></i></button>
             <button class="cbtn cbtn-mini" id="lyr-next"><i class="fa-solid fa-forward-step"></i></button>
         </div>
+    </div>
+
+    <!-- VIEW 4 — DOWNLOAD MANAGER -->
+    <div id="vdl" class="view">
+        <div class="dl-hdr">
+            <button class="ibtn" id="btn-close-dl"><i class="fa-solid fa-chevron-down"></i></button>
+            <div class="dl-hdr-info">
+                <div class="dl-hdr-ttl">Téléchargements</div>
+                <div class="dl-hdr-sub" id="dl-stats">Calcul en cours…</div>
+            </div>
+            <button class="ibtn" id="btn-dl-all" title="Tout télécharger"><i class="fa-solid fa-cloud-arrow-down" id="dl-all-ico"></i></button>
+        </div>
+        <div class="dl-prog-wrap" id="dl-prog-wrap" style="visibility:hidden">
+            <div class="dl-prog-rail"><div class="dl-prog-fill" id="dl-prog-fill"></div></div>
+            <div class="dl-prog-lbl" id="dl-prog-lbl"></div>
+        </div>
+        <div class="dl-body" id="dl-list"></div>
     </div>
 
 <script>
@@ -420,32 +468,6 @@ async function cacheOneTrack(i) {
     } catch {}
 }
 
-async function cacheCurrentTrack() {
-    if (isJingle) return;
-    const ico = document.getElementById('cache-cur-icon');
-    const btn = document.getElementById('btn-cache-cur');
-    ico.className = 'fa-solid fa-spinner fa-spin';
-    await cacheOneTrack(curIdx);
-    const cached = !!cacheMap[trackUrl(curIdx)];
-    if (cached) {
-        ico.className = 'fa-solid fa-cloud-check';
-        btn.style.color = 'var(--green)';
-        btn.classList.remove('dim');
-    } else {
-        ico.className = 'fa-solid fa-cloud-arrow-down';
-    }
-    updateCacheIcons();
-}
-
-function refreshCacheBtn() {
-    if (isJingle) return;
-    const ico = document.getElementById('cache-cur-icon');
-    const btn = document.getElementById('btn-cache-cur');
-    const cached = !!cacheMap[trackUrl(curIdx)];
-    ico.className = cached ? 'fa-solid fa-cloud-check' : 'fa-solid fa-cloud-arrow-down';
-    btn.style.color = cached ? 'var(--green)' : '';
-    btn.classList.toggle('dim', !cached);
-}
 
 // ══════════════════ DOM ═══════════════════════════════════════════════════
 const audio      = document.getElementById('audio');
@@ -693,7 +715,6 @@ async function loadTrack(idx, play=false) {
     else loadMeta(idx, ()=>refreshPlayer());
 
     useLyrFallback(idx);
-    refreshCacheBtn();
 
     if (play) {
         audio.play().then(()=>{ isPlaying=true; refreshBtn(); artwork.classList.add('pulse'); }).catch(()=>{});
@@ -767,11 +788,21 @@ pHit.addEventListener('touchstart', e=>{e.preventDefault();seek(e);},{passive:fa
 pHit.addEventListener('touchmove',  e=>{e.preventDefault();seek(e);},{passive:false});
 
 // ══════════════════ JINGLES ═══════════════════════════════════════════════
-function prepJingle() {
+async function _setJingleSrc(j) {
+    const url = jingleUrl(j);
+    const blob = await idbGet(url);
+    if (blob) {
+        if (!blobUrlMap[url]) blobUrlMap[url] = URL.createObjectURL(blob);
+        audio.src = blobUrlMap[url];
+    } else {
+        audio.src = JINGLE_D + encodeURIComponent(j);
+    }
+}
+async function prepJingle() {
     if (!JINGLES.length) { loadTrack(0); return; }
     const j = JINGLES[Math.floor(Math.random()*JINGLES.length)];
     isJingle=true; curJingleFile=j;
-    audio.src = JINGLE_D + encodeURIComponent(j);
+    await _setJingleSrc(j);
     tTitle.textContent  = CFG.radioName;
     tArtist.textContent = CFG.radioArtist;
     langBadge.textContent = '📻';
@@ -781,11 +812,11 @@ function prepJingle() {
     lyricsData=[]; updateLyrBtn();
     highlightList();
 }
-function playJingle(forced=null) {
+async function playJingle(forced=null) {
     if (!JINGLES.length) { nextTrack(); return; }
     const j = forced ?? JINGLES[Math.floor(Math.random()*JINGLES.length)];
     isJingle=true; curJingleFile=j;
-    audio.src = JINGLE_D + encodeURIComponent(j);
+    await _setJingleSrc(j);
     tTitle.textContent  = CFG.radioName;
     tArtist.textContent = CFG.radioArtist;
     langBadge.textContent = '📻';
@@ -881,12 +912,26 @@ function closeLyrics() {
 function buildList() {
     tList.innerHTML='';
     plCount.textContent = tracks.length + ' titres · ' + JINGLES.length + ' jingle';
+    initDragDrop();
 
     tracks.forEach((t,i)=>{
         const d=document.createElement('div');
         d.className='titem'; d.dataset.kind='music'; d.dataset.idx=i;
         renderMusicItem(i,d);
-        d.addEventListener('click',()=>{ loadTrack(i,true); closePl(); });
+        d.addEventListener('click', e => {
+            if (e.target.closest('.titem-cache')) {
+                // Téléchargement du morceau
+                e.stopPropagation();
+                const idx = +d.dataset.idx;
+                if (cacheMap[trackUrl(idx)]) return;
+                const ico = d.querySelector('.titem-cache i');
+                ico.className = 'fa-solid fa-spinner fa-spin';
+                cacheOneTrack(idx).then(()=>renderMusicItem(idx));
+                return;
+            }
+            if (e.target.closest('.drag-handle')) return;
+            loadTrack(i,true); closePl();
+        });
         tList.appendChild(d);
     });
 
@@ -911,14 +956,18 @@ function renderMusicItem(i, el) {
     const cacheIcoClass = cached ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-arrow-down';
     const cacheColor    = cached ? 'var(--green)' : 'var(--mid)';
     const cacheOpacity  = cached ? '1' : '0.4';
+    const cIco = cached ? 'fa-solid fa-cloud-check' : 'fa-solid fa-cloud-arrow-down';
+    const cCol = cached ? 'var(--green)' : 'var(--mid)';
+    const cOpa = cached ? '1' : '0.5';
     d.innerHTML=
-        `<div class="tnum${now?' now':''}">${now?'<i class="fa-solid fa-volume-high"></i>':i+1}</div>
+        `<div class="drag-handle"><i class="fa-solid fa-grip-lines"></i></div>
+         <div class="tnum${now?' now':''}">${now?'<i class="fa-solid fa-volume-high"></i>':i+1}</div>
          <div class="tiinfo">
            <div class="tittl${now?' now':''}">${esc(getTitle(i))}</div>
            <div class="tartst">${esc(getArtist(i))}</div>
          </div>
          <span class="titem-flag">${flag}</span>
-         <span class="titem-cache"><i class="${cacheIcoClass}" style="color:${cacheColor};opacity:${cacheOpacity}"></i></span>`;
+         <span class="titem-cache"><i class="${cIco}" style="color:${cCol};opacity:${cOpa}"></i></span>`;
 }
 function renderJingleItem(f, el) {
     const jIdx=JINGLES.indexOf(f);
@@ -938,6 +987,180 @@ function updateItem(i) { renderMusicItem(i); }
 function highlightList() {
     tList.querySelectorAll('[data-kind="music"]').forEach(el=>renderMusicItem(+el.dataset.idx,el));
     tList.querySelectorAll('[data-kind="jingle"]').forEach(el=>renderJingleItem(JINGLES[+el.dataset.idx],el));
+}
+
+// ══════════════════ DOWNLOAD MANAGER ════════════════════════════════════════
+function jingleUrl(f) { return location.origin + '/jingles/' + encodeURIComponent(f); }
+
+async function autoDownloadJingles() {
+    for (const f of JINGLES) {
+        const url = jingleUrl(f);
+        if (await idbHas(url)) continue;
+        try {
+            const r = await fetch(url);
+            if (r.ok) await idbPut(url, await r.blob());
+        } catch {}
+    }
+}
+
+function dlStats() {
+    const total = tracks.length;
+    const cached = tracks.filter((_,i) => cacheMap[trackUrl(i)]).length;
+    const jTotal = JINGLES.length;
+    const jCached = JINGLES.filter(f => cacheMap[jingleUrl(f)]).length;
+    return { total, cached, jTotal, jCached };
+}
+
+function updateDlStats() {
+    const s = dlStats();
+    const el = document.getElementById('dl-stats');
+    if (!el) return;
+    const allOk = s.cached === s.total && s.jCached === s.jTotal;
+    const ico   = document.getElementById('btn-open-dl')?.querySelector('i');
+    if (allOk) {
+        el.textContent = `${s.total} morceaux · ${s.jTotal} jingles — tout disponible hors-ligne ✓`;
+        if (ico) { ico.className='fa-solid fa-cloud-check'; document.getElementById('btn-open-dl').style.color='var(--green)'; document.getElementById('btn-open-dl').classList.remove('dim'); }
+    } else {
+        el.textContent = `${s.cached}/${s.total} morceaux · ${s.jCached}/${s.jTotal} jingles téléchargés`;
+        if (ico) { ico.className='fa-solid fa-cloud-arrow-down'; document.getElementById('btn-open-dl').style.color=''; document.getElementById('btn-open-dl').classList.add('dim'); }
+    }
+}
+
+function buildDlList() {
+    const list = document.getElementById('dl-list');
+    list.innerHTML = '';
+    updateDlStats();
+
+    // Morceaux
+    const secM = document.createElement('div');
+    secM.className = 'dl-section'; secM.textContent = 'Morceaux';
+    list.appendChild(secM);
+
+    tracks.forEach((t, i) => {
+        const url = trackUrl(i);
+        const cached = !!cacheMap[url];
+        const flag = t.lang === 'fr' ? '🇫🇷' : '🇦🇱';
+        const d = document.createElement('div');
+        d.className = 'dl-item'; d.dataset.dlIdx = i; d.dataset.dlType = 'track';
+        d.innerHTML =
+            `<span class="dl-item-flag">${flag}</span>
+             <div class="dl-item-info">
+               <div class="dl-item-ttl">${esc(getTitle(i))}</div>
+               <div class="dl-item-sub">${esc(getArtist(i))}</div>
+             </div>
+             <button class="dl-item-btn${cached?' cached':''}" title="${cached?'Téléchargé':'Télécharger'}">
+               <i class="${cached?'fa-solid fa-cloud-check':'fa-solid fa-cloud-arrow-down'}"></i>
+             </button>`;
+        list.appendChild(d);
+    });
+
+    // Jingles
+    if (JINGLES.length) {
+        const secJ = document.createElement('div');
+        secJ.className = 'dl-section'; secJ.textContent = 'Jingles — téléchargés automatiquement';
+        list.appendChild(secJ);
+        JINGLES.forEach((f, i) => {
+            const url = jingleUrl(f);
+            const cached = !!cacheMap[url];
+            const d = document.createElement('div');
+            d.className = 'dl-item';
+            d.innerHTML =
+                `<span class="dl-item-flag">📻</span>
+                 <div class="dl-item-info">
+                   <div class="dl-item-ttl">${esc(f.replace(/\.mp3$/i,''))}</div>
+                   <div class="dl-item-sub">Jingle radio</div>
+                 </div>
+                 <button class="dl-item-btn${cached?' cached':''}" disabled>
+                   <i class="${cached?'fa-solid fa-cloud-check':'fa-solid fa-spinner fa-spin'}"></i>
+                 </button>`;
+            list.appendChild(d);
+        });
+    }
+}
+
+// Délégation des clics dans la liste DL
+document.addEventListener('click', async e => {
+    const btn = e.target.closest('#dl-list .dl-item-btn');
+    if (!btn || btn.disabled) return;
+    const item = btn.closest('[data-dl-idx]');
+    if (!item) return;
+    const i = +item.dataset.dlIdx;
+    const url = trackUrl(i);
+    if (cacheMap[url]) return;
+    const ico = btn.querySelector('i');
+    ico.className = 'fa-solid fa-spinner fa-spin';
+    btn.disabled = true;
+    await cacheOneTrack(i);
+    const ok = !!cacheMap[url];
+    ico.className = ok ? 'fa-solid fa-cloud-check' : 'fa-solid fa-cloud-arrow-down';
+    btn.disabled = false;
+    if (ok) btn.classList.add('cached');
+    updateDlStats();
+    updateCacheIcons(); // met à jour la playlist aussi
+});
+
+function openDl()  {
+    refreshCacheMap().then(async () => {
+        // rafraîchir aussi les jingles dans cacheMap
+        await Promise.all(JINGLES.map(async f => { cacheMap[jingleUrl(f)] = await idbHas(jingleUrl(f)); }));
+        buildDlList();
+    });
+    document.body.classList.add('dl-open');
+}
+function closeDl() { document.body.classList.remove('dl-open'); }
+
+// ══════════════════ DRAG & DROP PLAYLIST ════════════════════════════════════
+let _drgIdx=null, _drgEl=null, _drgOver=null;
+
+function initDragDrop() {
+    tList.addEventListener('touchstart', e=>{
+        const h=e.target.closest('.drag-handle'); if(!h) return;
+        const item=h.closest('[data-kind="music"]'); if(!item) return;
+        e.preventDefault();
+        _drgIdx=+item.dataset.idx; _drgEl=item;
+        item.classList.add('dragging');
+    },{passive:false});
+
+    tList.addEventListener('touchmove', e=>{
+        if(_drgEl===null) return;
+        e.preventDefault();
+        const y=e.touches[0].clientY;
+        tList.querySelectorAll('.drop-top,.drop-bot').forEach(el=>el.classList.remove('drop-top','drop-bot'));
+        _drgOver=null;
+        for(const el of tList.querySelectorAll('[data-kind="music"]')) {
+            if(el===_drgEl) continue;
+            const r=el.getBoundingClientRect();
+            if(y>=r.top && y<r.bottom) {
+                const before=y<r.top+r.height/2;
+                el.classList.add(before?'drop-top':'drop-bot');
+                _drgOver={el, before};
+                break;
+            }
+        }
+    },{passive:false});
+
+    tList.addEventListener('touchend', e=>{
+        if(_drgEl===null) return;
+        _drgEl.classList.remove('dragging');
+        tList.querySelectorAll('.drop-top,.drop-bot').forEach(el=>el.classList.remove('drop-top','drop-bot'));
+        if(_drgOver) reorderTrack(_drgIdx, +_drgOver.el.dataset.idx, _drgOver.before);
+        _drgEl=null; _drgIdx=null; _drgOver=null;
+    },{passive:true});
+}
+
+function reorderTrack(from, to, insertBefore) {
+    if(from===to) return;
+    const curTrack=tracks[curIdx];
+    const arr=[...tracks];
+    const [moved]=arr.splice(from,1);
+    const dest=insertBefore
+        ? (to>from ? to-1 : to)
+        : (to>from ? to : to+1);
+    arr.splice(Math.max(0,Math.min(dest,arr.length)),0,moved);
+    tracks.length=0; tracks.push(...arr);
+    curIdx=tracks.indexOf(curTrack);
+    buildShuffle();
+    refreshCacheMap().then(()=>{ buildList(); highlightList(); });
 }
 
 // ══════════════════ MODE SWITCHING ════════════════════════════════════════
@@ -979,33 +1202,28 @@ document.getElementById('btn-next')    .addEventListener('click', nextTrack);
 document.getElementById('btn-prev')    .addEventListener('click', prevTrack);
 document.getElementById('btn-open-pl') .addEventListener('click', openPl);
 document.getElementById('btn-close-pl').addEventListener('click', closePl);
-document.getElementById('btn-lyrics')    .addEventListener('click', openLyrics);
-document.getElementById('btn-cache-cur') .addEventListener('click', cacheCurrentTrack);
-document.getElementById('btn-cache-all').addEventListener('click', async () => {
-    const ico   = document.getElementById('cache-all-icon');
-    const bar   = document.getElementById('cache-bar');
-    const fill  = document.getElementById('cache-fill');
-    const pct   = document.getElementById('cache-bar-pct');
-    const lbl   = document.getElementById('cache-bar-lbl');
+document.getElementById('btn-lyrics')  .addEventListener('click', openLyrics);
+document.getElementById('btn-open-dl') .addEventListener('click', openDl);
+document.getElementById('btn-close-dl').addEventListener('click', closeDl);
+document.getElementById('btn-dl-all')  .addEventListener('click', async () => {
+    const ico   = document.getElementById('dl-all-ico');
+    const wrap  = document.getElementById('dl-prog-wrap');
+    const fill  = document.getElementById('dl-prog-fill');
+    const lbl   = document.getElementById('dl-prog-lbl');
     const total = tracks.length;
     if (!total) return;
-
     ico.className = 'fa-solid fa-spinner fa-spin';
-    bar.classList.add('show');
-
+    wrap.style.visibility = 'visible';
     for (let i=0; i<total; i++) {
-        lbl.textContent = `Mise en cache… ${i+1}/${total}`;
+        lbl.textContent = `Téléchargement… ${i+1}/${total}`;
         fill.style.width = ((i+1)/total*100) + '%';
-        pct.textContent  = Math.round((i+1)/total*100) + '%';
         await cacheOneTrack(i);
-        updateCacheIcons();
     }
-
     lbl.textContent = `${total} morceaux disponibles hors-ligne ✓`;
-    fill.style.width = '100%'; pct.textContent = '100%';
     ico.className = 'fa-solid fa-cloud-check';
-    document.getElementById('btn-cache-all').style.color = 'var(--green)';
-    setTimeout(()=>bar.classList.remove('show'), 3000);
+    document.getElementById('btn-dl-all').style.color = 'var(--green)';
+    updateCacheIcons();
+    buildDlList();
 });
 document.getElementById('btn-close-lyr').addEventListener('click', closeLyrics);
 document.getElementById('lyr-play').addEventListener('click', togglePlay);
@@ -1045,6 +1263,7 @@ if (PL_FR.length || PL_SQ.length) {
     buildTracks();
     buildShuffle();
     refreshCacheMap().then(()=>buildList());
+    autoDownloadJingles(); // silent, no UI
     if (JINGLES.length) prepJingle();
     else loadTrack(0);
 } else {

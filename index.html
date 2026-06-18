@@ -12,33 +12,54 @@
     <style>
         :root { --green:#1DB954; --black:#121212; --dark:#181818; --grey:#282828; --mid:#535353; --light:#b3b3b3; }
         * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; user-select:none; }
-        html,body { height:100%; overflow:hidden; background:var(--black);
+        html,body { height:100%; background:#0d0d0d;
             font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#fff; }
+        body { display:flex; align-items:center; justify-content:center; overflow:hidden; }
+
+        /* ── Cadre téléphone (PC uniquement) ── */
+        #phone {
+            position:relative; width:390px; height:844px; overflow:hidden;
+            border-radius:44px; flex-shrink:0;
+            box-shadow:0 0 0 10px #1c1c1e, 0 0 0 11px #3a3a3c, 0 30px 80px rgba(0,0,0,.8);
+            background:var(--black);
+        }
+        @media (max-height: 860px) and (min-width:500px) {
+            #phone {
+                height: min(844px, 100dvh);
+                width:  calc(390 / 844 * min(844px, 100dvh));
+                border-radius: calc(44 / 844 * min(844px, 100dvh));
+            }
+        }
+        /* Sur vrai téléphone : plein écran, pas de cadre */
+        @media (max-width: 500px) {
+            html,body { background:var(--black); }
+            #phone { width:100vw; height:100dvh; border-radius:0; box-shadow:none; }
+        }
 
         /* STATUS BAR */
-        .sbar { position:fixed; top:0; left:0; right:0; height:44px; display:flex; align-items:center;
+        .sbar { position:absolute; top:0; left:0; right:0; height:44px; display:flex; align-items:center;
             justify-content:space-between; padding:0 22px; z-index:300; pointer-events:none; }
-        .sbar-time { font-size:30px; font-weight:700; }
-        .sbar-icons { display:flex; align-items:center; gap:6px; font-size:26px; }
+        .sbar-time { font-size:14px; font-weight:700; }
+        .sbar-icons { display:flex; align-items:center; gap:6px; font-size:13px; }
 
         /* VIEWS */
-        .view { position:fixed; inset:0; display:flex; flex-direction:column; background:var(--black);
+        .view { position:absolute; inset:0; display:flex; flex-direction:column; background:var(--black);
             overflow:hidden; transition:transform .38s cubic-bezier(.4,0,.2,1); will-change:transform; }
         #vp   { transform:translateX(0);    z-index:1; }
         #vpl  { transform:translateX(100%); z-index:2; }
         #vlyr { transform:translateY(100%); z-index:3; }
-        #vdl  { transform:translateY(100%); z-index:4; background:var(--dark); }
-        body.pl-open  #vp  { transform:translateX(-28%); }
-        body.pl-open  #vpl { transform:translateX(0); }
+        #vdl  { display:none; z-index:4; background:var(--dark); }
+        body.pl-open  #vp  { transform:translateX(-100%); }
+        body.pl-open  #vpl { transform:translateX(0); z-index:10; }
         body.lyr-open #vlyr { transform:translateY(0); }
-        body.dl-open  #vdl  { transform:translateY(0); }
+        body.dl-open  #vdl  { display:flex; }
         #vp::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.55);
             opacity:0; transition:opacity .38s; pointer-events:none; z-index:10; }
         body.pl-open #vp::after { opacity:1; }
 
         /* SHARED */
-        .ibtn { background:none; border:none; color:#fff; width:60px; height:60px;
-            display:flex; align-items:center; justify-content:center; font-size:36px; cursor:pointer; flex-shrink:0; }
+        .ibtn { background:none; border:none; color:#fff; width:44px; height:44px;
+            display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; flex-shrink:0; }
         .dim { color:var(--light) !important; opacity:.5; }
 
         /* PLAYER BG */
@@ -48,23 +69,32 @@
         .pc { position:relative; z-index:1; display:flex; flex-direction:column; height:100%; padding:0 24px 28px; }
 
         /* TOP BAR */
-        .topbar { display:flex; align-items:center; justify-content:space-between; padding-top:54px; padding-bottom:6px; }
+        .topbar { display:flex; align-items:center; justify-content:space-between; padding-top:46px; padding-bottom:4px; }
         .topbar-c { text-align:center; flex:1; }
-        .topbar-ttl { font-size:28px; font-weight:700; }
+        .topbar-ttl { font-size:14px; font-weight:700; }
 
         /* ARTWORK */
-        .art-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:10px 0; }
-        .art { width:100%; max-width:300px; aspect-ratio:1; border-radius:8px;
+        .art-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:6px 0; }
+        .art { width:100%; max-width:220px; aspect-ratio:1; border-radius:8px;
             box-shadow:0 16px 48px rgba(0,0,0,.75); object-fit:cover; background:var(--grey);
             cursor:pointer; transition:transform .2s; }
         .art.pulse  { transform:scale(1.02); }
         .art.locked { outline:2px solid rgba(29,185,84,.35); outline-offset:3px; }
 
         /* TRACK INFO */
-        .tinfo { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+        .tinfo { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
         .ttext { flex:1; overflow:hidden; }
-        .ttitle  { font-size:42px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .tartist { font-size:28px; color:var(--light); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .ttitle  { font-size:18px; font-weight:700; white-space:nowrap; overflow:hidden; }
+        .ttitle span.marquee-inner { display:inline-block; }
+        .ttitle.scrolling span.marquee-inner {
+            animation: marquee-bounce var(--mq-dur,8s) ease-in-out infinite;
+        }
+        @keyframes marquee-bounce {
+            0%,15%   { transform:translateX(0); }
+            45%,55%  { transform:translateX(var(--mq-shift,0px)); }
+            85%,100% { transform:translateX(0); }
+        }
+        .tartist { font-size:13px; color:var(--light); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
         /* PROGRESS */
         .prog-wrap { margin-bottom:20px; }
@@ -75,7 +105,7 @@
         .prog-thumb { width:14px; height:14px; background:#fff; border-radius:50%; position:absolute;
             top:50%; left:0%; transform:translate(-50%,-50%); opacity:0; transition:opacity .15s; pointer-events:none; }
         .prog-hit:active .prog-thumb { opacity:1; }
-        .prog-times { display:flex; justify-content:space-between; margin-top:10px; font-size:22px; color:var(--light); font-weight:500; }
+        .prog-times { display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--light); font-weight:500; }
 
         /* CONTROLS */
         .ctrls { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
@@ -84,10 +114,10 @@
         .cbtn.active { color:var(--green); }
         .cbtn.active::after { content:''; position:absolute; bottom:-6px; left:50%;
             transform:translateX(-50%); width:4px; height:4px; background:var(--green); border-radius:50%; }
-        .cbtn-skip { font-size:56px; }
-        .cbtn-mini { font-size:40px; color:var(--light); }
-        .cbtn-play { width:96px; height:96px; background:#fff; color:#000; border-radius:50%;
-            font-size:42px; box-shadow:0 6px 20px rgba(0,0,0,.4); transition:transform .1s; }
+        .cbtn-skip { font-size:30px; }
+        .cbtn-mini { font-size:22px; color:var(--light); }
+        .cbtn-play { width:58px; height:58px; background:#fff; color:#000; border-radius:50%;
+            font-size:24px; box-shadow:0 4px 14px rgba(0,0,0,.4); transition:transform .1s; }
         .cbtn-play:active { transform:scale(.94); }
 
         /* BOTTOM BAR */
@@ -96,7 +126,7 @@
 
         /* TOPBAR icon buttons (smaller than ibtn default) */
         .topbar-actions { display:flex; gap:2px; }
-        .topbar-actions .ibtn { width:44px; height:44px; font-size:26px; }
+        .topbar-actions .ibtn { width:34px; height:34px; font-size:16px; }
 
         /* Per-track cache icon */
         .titem-cache { width:34px; text-align:center; font-size:22px; flex-shrink:0; cursor:pointer; padding:4px 0; }
@@ -135,18 +165,19 @@
 
         /* PLAYLIST VIEW */
         .plhdr { background:linear-gradient(to bottom,#4a2020,#2a1515 50%,#181818); padding:0 16px; flex-shrink:0; }
-        .pltop { display:flex; align-items:center; justify-content:space-between; padding-top:54px; padding-bottom:12px; }
-        .pltop-ttl { font-size:28px; font-weight:600; }
-        .plhero { display:flex; flex-direction:column; align-items:center; padding:4px 0 18px; }
-        .plcover { width:168px; height:168px; border-radius:6px; object-fit:cover;
+        .pltop { display:flex; align-items:center; justify-content:space-between; padding-top:52px; padding-bottom:12px; }
+        .pltop-ttl { font-size:22px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60%; }
+        @media (max-width:500px) { .pltop { padding-top: max(52px, env(safe-area-inset-top, 52px)); } }
+        .plhero { display:flex; flex-direction:column; align-items:center; padding:4px 0 10px; }
+        .plcover { width:120px; height:120px; border-radius:6px; object-fit:cover;
             box-shadow:0 10px 36px rgba(0,0,0,.7); background:var(--grey); margin-bottom:20px; }
-        .plname  { font-size:48px; font-weight:700; text-align:center; }
-        .pldesc  { font-size:26px; color:var(--light); margin-top:6px; text-align:center; }
-        .plmeta  { font-size:24px; color:var(--mid); margin-top:4px; }
-        .plactions { display:flex; align-items:center; justify-content:space-between; padding:14px 0 16px; }
-        .plbtns { display:flex; gap:10px; }
-        .lbtn { border:none; border-radius:50px; font-size:26px; font-weight:700; padding:18px 32px;
-            cursor:pointer; display:flex; align-items:center; gap:8px; }
+        .plname  { font-size:26px; font-weight:700; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+        .pldesc  { font-size:18px; color:var(--light); margin-top:4px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+        .plmeta  { font-size:17px; color:var(--mid); margin-top:3px; }
+        .plactions { display:flex; align-items:center; justify-content:space-between; padding:8px 0 10px; }
+        .plbtns { display:flex; gap:10px; flex:1; }
+        .lbtn { flex:1; border:none; border-radius:50px; font-size:22px; font-weight:700; padding:14px 18px;
+            cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; white-space:nowrap; }
         .lbtn:active { opacity:.8; }
         .lbtn-outline { background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,.25); }
         .lbtn-green   { background:var(--green); color:#000; }
@@ -155,8 +186,8 @@
         .titem { display:flex; align-items:center; padding:9px 4px; gap:12px;
             cursor:pointer; border-radius:6px; transition:background .1s; }
         .titem:active { background:rgba(255,255,255,.06); }
-        .tnum  { width:36px; text-align:center; font-size:28px; color:var(--light); flex-shrink:0; }
-        .tnum.now { color:var(--green); font-size:22px; }
+        .tnum  { width:28px; text-align:center; font-size:14px; color:var(--light); flex-shrink:0; }
+        .tnum.now { color:var(--green); font-size:11px; }
         /* Indicateurs paroles */
         .lyr-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
         .lyr-dot-plain { background:rgba(255,255,255,.55); }
@@ -171,10 +202,10 @@
         #btn-lyrics.lyr-plain i  { color:#fff !important; opacity:1; }
         #btn-lyrics.lyr-lrc   i  { animation:rainbow-icon 2s linear infinite; }
         .tiinfo { flex:1; overflow:hidden; }
-        .tittl  { font-size:28px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .tittl  { font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .tittl.now { color:var(--green); }
-        .tartst { font-size:24px; color:var(--light); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .pl-section { padding:18px 4px 8px; font-size:22px; font-weight:700;
+        .tartst { font-size:12px; color:var(--light); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .pl-section { padding:10px 4px 4px; font-size:12px; font-weight:700;
             letter-spacing:1.5px; text-transform:uppercase; color:var(--mid); }
 
         /* LYRICS VIEW */
@@ -182,20 +213,20 @@
             flex-shrink:0; display:flex; align-items:center; gap:12px; }
         .lyr-mini-art { width:44px; height:44px; border-radius:4px; object-fit:cover; background:var(--grey); flex-shrink:0; }
         .lyr-meta { flex:1; overflow:hidden; }
-        .lyr-track  { font-size:28px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .lyr-artist { font-size:24px; color:var(--light); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .lyr-track  { font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .lyr-artist { font-size:13px; color:var(--light); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .lyr-body { flex:1; overflow-y:auto; padding:24px 28px 100px; -webkit-overflow-scrolling:touch; background:var(--black); }
         .lyr-body::-webkit-scrollbar { display:none; }
         #lyr-lines { display:flex; flex-direction:column; gap:4px; }
-        .lyr-line { font-size:46px; font-weight:700; line-height:1.35; padding:10px 0;
-            color:rgba(255,255,255,.2); transition:color .35s, font-size .25s; cursor:default; }
+        .lyr-line { font-size:15px; font-weight:600; line-height:1.45; padding:4px 0;
+            color:rgba(255,255,255,.25); transition:color .35s, font-size .2s; cursor:default; }
         .lyr-line.past { color:rgba(255,255,255,.15); }
-        .lyr-line.now  { color:#fff; font-size:54px; }
+        .lyr-line.now  { color:#fff; font-size:18px; }
         .lyr-empty { font-size:32px; color:var(--mid); text-align:center; padding:48px 0; }
-        .lyr-ctrl { position:fixed; bottom:0; left:0; right:0; z-index:4;
+        .lyr-ctrl { position:absolute; bottom:0; left:0; right:0; z-index:4;
             background:linear-gradient(to top,rgba(0,0,0,.95) 70%,transparent);
             display:flex; align-items:center; justify-content:space-around; padding:20px 16px 28px; }
-        .lyr-ctrl .cbtn-play { width:80px; height:80px; font-size:38px; }
+        .lyr-ctrl .cbtn-play { width:52px; height:52px; font-size:22px; }
 
         /* MISC */
         @keyframes spin { to { transform:rotate(360deg); } }
@@ -204,6 +235,7 @@
     </style>
 </head>
 <body>
+<div id="phone">
 
     <div class="sbar">
         <span class="sbar-time" id="sbar-time">9:41</span>
@@ -270,7 +302,7 @@
     <div id="vpl" class="view">
         <div class="plhdr" id="pl-hdr">
             <div class="pltop">
-                <button class="ibtn" id="btn-close-pl"><i class="fa-solid fa-chevron-left"></i></button>
+                <button class="ibtn" id="btn-close-pl" style="font-size:16px;background:rgba(255,255,255,.12);border-radius:50%;width:36px;height:36px;"><i class="fa-solid fa-chevron-left"></i></button>
                 <span class="pltop-ttl">AlbaFrancia FM</span>
                 <div style="width:60px"></div>
             </div>
@@ -643,9 +675,25 @@ function applyArtState() {
     }
     artwork.classList.toggle('locked', artState === 1);
 }
+function setMarquee(el, text) {
+    el.innerHTML = `<span class="marquee-inner">${text}</span>`;
+    el.classList.remove('scrolling');
+    // mesure après paint
+    requestAnimationFrame(() => {
+        const inner = el.querySelector('.marquee-inner');
+        const overflow = inner.scrollWidth - el.clientWidth;
+        if (overflow > 4) {
+            const shift = -overflow;
+            const dur   = Math.max(4, overflow / 40); // ~40px/s
+            el.style.setProperty('--mq-shift', shift + 'px');
+            el.style.setProperty('--mq-dur',   dur   + 's');
+            el.classList.add('scrolling');
+        }
+    });
+}
 function refreshPlayer() {
     if (isJingle) return;
-    tTitle.textContent  = getTitle(curIdx);
+    setMarquee(tTitle, getTitle(curIdx));
     tArtist.textContent = getArtist(curIdx);
     lyrTitle.textContent  = getTitle(curIdx);
     lyrArtist.textContent = getArtist(curIdx);
@@ -774,7 +822,7 @@ async function prepJingle() {
     const j = JINGLES[Math.floor(Math.random()*JINGLES.length)];
     isJingle=true; curJingleFile=j;
     await _setJingleSrc(j);
-    tTitle.textContent  = CFG.radioName;
+    setMarquee(tTitle, CFG.radioName);
     tArtist.textContent = CFG.radioArtist;
     lyrTitle.textContent = lyrArtist.textContent = '';
     setCovers(COVER);
@@ -787,7 +835,7 @@ async function playJingle(forced=null) {
     const j = forced ?? JINGLES[Math.floor(Math.random()*JINGLES.length)];
     isJingle=true; curJingleFile=j;
     await _setJingleSrc(j);
-    tTitle.textContent  = CFG.radioName;
+    setMarquee(tTitle, CFG.radioName);
     tArtist.textContent = CFG.radioArtist;
     lyrTitle.textContent = lyrArtist.textContent = '';
     setCovers(COVER);
@@ -1127,8 +1175,8 @@ document.addEventListener('click', async e => {
 });
 
 function openDl()  {
+    closePl(); closeLyrics();
     refreshCacheMap().then(async () => {
-        // rafraîchir aussi les jingles dans cacheMap
         await Promise.all(JINGLES.map(async f => { cacheMap[jingleUrl(f)] = await idbHas(jingleUrl(f)); }));
         buildDlList();
     });
@@ -1192,18 +1240,29 @@ function reorderTrack(from, to, insertBefore) {
 
 // ══════════════════ VIEW SWITCHING ════════════════════════════════════════
 function openPl() {
+    closeDl(); closeLyrics();
     document.body.classList.add('pl-open');
     queueAll();
     setTimeout(()=>tList.querySelector('[data-kind="music"].titem:nth-child('+Math.max(1,curIdx+1)+')')?.scrollIntoView({behavior:'smooth',block:'center'}),400);
 }
 function closePl() { document.body.classList.remove('pl-open'); }
 
+// Swipe touch (mobile)
 let sx=0, sy=0;
 document.getElementById('vpl').addEventListener('touchstart',e=>{ sx=e.touches[0].clientX; sy=e.touches[0].clientY; },{passive:true});
 document.getElementById('vpl').addEventListener('touchend',e=>{
     const dx=e.changedTouches[0].clientX-sx, dy=Math.abs(e.changedTouches[0].clientY-sy);
-    if (dx>80 && dx>dy*2) closePl();  // swipe droit clairement horizontal
+    if (dx>80 && dx>dy*2) closePl();
 },{passive:true});
+// Clic sur la zone sombre du player quand playlist ouverte → ferme (PC)
+// (on exclut les clics sur les boutons pour éviter le bubble depuis btn-open-pl)
+document.getElementById('vp').addEventListener('click', e=>{
+    if (document.body.classList.contains('pl-open') && !e.target.closest('button')) closePl();
+});
+// Touche Échap → ferme tout
+document.addEventListener('keydown', e=>{
+    if (e.key==='Escape') { closePl(); closeLyrics(); closeDl(); }
+});
 
 // ══════════════════ BINDINGS ══════════════════════════════════════════════
 document.getElementById('btn-play')    .addEventListener('click', togglePlay);
@@ -1275,5 +1334,6 @@ autoDownloadJingles(); // silent, no UI
 if (JINGLES.length) prepJingle();
 else if (tracks.length) loadTrack(0);
 </script>
+</div><!-- #phone -->
 </body>
 </html>

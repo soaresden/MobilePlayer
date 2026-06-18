@@ -10,7 +10,7 @@ window.CONFIG = {
 
     // Fréquence des jingles :
     // un jingle sera inséré toutes les N à M chansons (tiré au sort)
-    jingleEveryMin: 3,
-    jingleEveryMax: 5,
+    jingleEveryMin: 1,
+    jingleEveryMax: 2,
 
 };

@@ -345,8 +345,44 @@ let curLyrLine = -1;
 
 function rng(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
 
-// ══════════════════ CACHE MAP ═════════════════════════════════════════════
-const cacheMap = {};  // url → true
+// ══════════════════ INDEXEDDB CACHE ══════════════════════════════════════
+// Fonctionne sur HTTP simple (pas besoin de HTTPS contrairement au SW)
+const IDB_NAME = 'albafm', IDB_STORE = 'audio';
+let _db = null;
+async function openIdb() {
+    if (_db) return _db;
+    return new Promise((res,rej)=>{
+        const r=indexedDB.open(IDB_NAME,1);
+        r.onupgradeneeded=e=>e.target.result.createObjectStore(IDB_STORE);
+        r.onsuccess=e=>{_db=e.target.result;res(_db);};
+        r.onerror=()=>rej(r.error);
+    });
+}
+async function idbGet(key) {
+    const d=await openIdb();
+    return new Promise(res=>{
+        const r=d.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(key);
+        r.onsuccess=()=>res(r.result??null); r.onerror=()=>res(null);
+    });
+}
+async function idbPut(key,val) {
+    const d=await openIdb();
+    return new Promise((res,rej)=>{
+        const tx=d.transaction(IDB_STORE,'readwrite');
+        tx.objectStore(IDB_STORE).put(val,key);
+        tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+    });
+}
+async function idbHas(key) {
+    const d=await openIdb();
+    return new Promise(res=>{
+        const r=d.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).count(key);
+        r.onsuccess=()=>res(r.result>0); r.onerror=()=>res(false);
+    });
+}
+
+const cacheMap   = {};   // url → true
+const blobUrlMap = {};   // url → object URL (évite de recréer à chaque fois)
 
 function trackUrl(i) {
     const t = tracks[i];
@@ -354,14 +390,9 @@ function trackUrl(i) {
 }
 
 async function refreshCacheMap() {
-    if (!('caches' in window)) return;
-    try {
-        const cache = await caches.open('albafm-v2');
-        await Promise.all(tracks.map(async (_, i) => {
-            const url = trackUrl(i);
-            cacheMap[url] = !!(await cache.match(url));
-        }));
-    } catch {}
+    await Promise.all(tracks.map(async (_,i) => {
+        cacheMap[trackUrl(i)] = await idbHas(trackUrl(i));
+    }));
 }
 
 function updateCacheIcons() {
@@ -379,12 +410,12 @@ function updateCacheIcons() {
 
 async function cacheOneTrack(i) {
     const url = trackUrl(i);
-    if (cacheMap[url]) return;  // déjà en cache
+    if (cacheMap[url]) return;
     try {
         const resp = await fetch(url);
         if (!resp.ok) return;
-        const cache = await caches.open('albafm-v2');
-        await cache.put(url, resp);
+        const blob = await resp.blob();
+        await idbPut(url, blob);
         cacheMap[url] = true;
     } catch {}
 }
@@ -633,12 +664,20 @@ function refreshBtn() {
 }
 
 // ══════════════════ PLAYER CORE ═══════════════════════════════════════════
-function loadTrack(idx, play=false) {
+async function loadTrack(idx, play=false) {
     curIdx   = idx;
     isJingle = false; curJingleFile = null;
-    artState = 0;  // retour à la cover radio sur chaque nouvelle piste
+    artState = 0;
     const t  = tracks[idx];
-    audio.src = t.dir + encodeURIComponent(t.file);
+    // Utiliser le blob IDB si disponible (offline), sinon URL réseau
+    const url  = trackUrl(idx);
+    const blob = await idbGet(url);
+    if (blob) {
+        if (!blobUrlMap[url]) blobUrlMap[url] = URL.createObjectURL(blob);
+        audio.src = blobUrlMap[url];
+    } else {
+        audio.src = t.dir + encodeURIComponent(t.file);
+    }
     tTitle.innerHTML    = '<span class="spin"></span>';
     tArtist.textContent = CFG.radioArtist;
     langBadge.textContent = '';
@@ -942,15 +981,31 @@ document.getElementById('btn-open-pl') .addEventListener('click', openPl);
 document.getElementById('btn-close-pl').addEventListener('click', closePl);
 document.getElementById('btn-lyrics')    .addEventListener('click', openLyrics);
 document.getElementById('btn-cache-cur') .addEventListener('click', cacheCurrentTrack);
-document.getElementById('btn-cache-all') .addEventListener('click', async () => {
-    const ico = document.getElementById('cache-all-icon');
+document.getElementById('btn-cache-all').addEventListener('click', async () => {
+    const ico   = document.getElementById('cache-all-icon');
+    const bar   = document.getElementById('cache-bar');
+    const fill  = document.getElementById('cache-fill');
+    const pct   = document.getElementById('cache-bar-pct');
+    const lbl   = document.getElementById('cache-bar-lbl');
+    const total = tracks.length;
+    if (!total) return;
+
     ico.className = 'fa-solid fa-spinner fa-spin';
-    // Mettre en cache tous les morceaux visibles (selon le mode courant)
-    for (let i=0; i<tracks.length; i++) await cacheOneTrack(i);
-    await refreshCacheMap();
-    updateCacheIcons();
+    bar.classList.add('show');
+
+    for (let i=0; i<total; i++) {
+        lbl.textContent = `Mise en cache… ${i+1}/${total}`;
+        fill.style.width = ((i+1)/total*100) + '%';
+        pct.textContent  = Math.round((i+1)/total*100) + '%';
+        await cacheOneTrack(i);
+        updateCacheIcons();
+    }
+
+    lbl.textContent = `${total} morceaux disponibles hors-ligne ✓`;
+    fill.style.width = '100%'; pct.textContent = '100%';
     ico.className = 'fa-solid fa-cloud-check';
     document.getElementById('btn-cache-all').style.color = 'var(--green)';
+    setTimeout(()=>bar.classList.remove('show'), 3000);
 });
 document.getElementById('btn-close-lyr').addEventListener('click', closeLyrics);
 document.getElementById('lyr-play').addEventListener('click', togglePlay);
@@ -975,27 +1030,9 @@ document.getElementById('btn-repeat').addEventListener('click',()=>{
     document.getElementById('btn-repeat').classList.toggle('active',isRepeat);
 });
 
-// ══════════════════ SERVICE WORKER ════════════════════════════════════════
+// ══════════════════ SERVICE WORKER (app shell uniquement) ═════════════════
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
-        // Barre de progression pendant le cache-all via SW
-        navigator.serviceWorker.addEventListener('message', e => {
-            if (e.data?.type === 'PRECACHE_PROGRESS') {
-                const pct = e.data.done / e.data.total * 100;
-                const bar = document.getElementById('cache-bar');
-                bar.classList.add('show');
-                document.getElementById('cache-bar-lbl').textContent = `Mise en cache… (${e.data.done}/${e.data.total})`;
-                document.getElementById('cache-fill').style.width = pct + '%';
-                document.getElementById('cache-bar-pct').textContent = Math.round(pct) + '%';
-            } else if (e.data?.type === 'PRECACHE_DONE') {
-                document.getElementById('cache-bar-lbl').textContent = 'Disponible hors-ligne ✓';
-                document.getElementById('cache-fill').style.width = '100%';
-                document.getElementById('cache-bar-pct').textContent = '100%';
-                setTimeout(()=>document.getElementById('cache-bar').classList.remove('show'), 2000);
-                refreshCacheMap().then(updateCacheIcons);
-            }
-        });
-    }).catch(()=>{});
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
 }
 
 // ══════════════════ CLOCK ═════════════════════════════════════════════════

@@ -132,6 +132,9 @@
         .dl-hdr-ttl { font-size:28px; font-weight:700; }
         .dl-hdr-sub { font-size:20px; color:var(--light); margin-top:2px; }
         .dl-prog-wrap { padding:10px 16px 4px; flex-shrink:0; }
+        #dl-error-log { margin:8px 16px; padding:10px 12px; background:rgba(220,50,50,.18);
+            border:1px solid rgba(220,50,50,.4); border-radius:8px; font-size:18px;
+            color:#ff8888; white-space:pre-wrap; word-break:break-all; display:none; }
         .dl-prog-rail { height:5px; background:rgba(255,255,255,.12); border-radius:3px; }
         .dl-prog-fill { height:100%; width:0%; background:var(--green); border-radius:3px; transition:width .4s; }
         .dl-prog-lbl  { font-size:19px; color:var(--light); margin-top:5px; }
@@ -341,6 +344,7 @@
             </div>
             <button class="ibtn" id="btn-dl-all" title="Tout télécharger"><i class="fa-solid fa-cloud-arrow-down" id="dl-all-ico"></i></button>
         </div>
+        <div id="dl-error-log"></div>
         <div class="dl-prog-wrap" id="dl-prog-wrap" style="visibility:hidden">
             <div class="dl-prog-rail"><div class="dl-prog-fill" id="dl-prog-fill"></div></div>
             <div class="dl-prog-lbl" id="dl-prog-lbl"></div>
@@ -444,16 +448,32 @@ async function refreshCacheMap() {
 }
 
 function updateCacheIcons() {
-    // Met à jour uniquement les icônes cache dans la liste sans re-render complet
     tList.querySelectorAll('[data-kind="music"]').forEach(el => {
         const i = +el.dataset.idx;
         const dot = el.querySelector('.titem-cache i');
         if (!dot) return;
         const cached = !!cacheMap[trackUrl(i)];
-        dot.className = cached ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-arrow-down';
+        dot.className = cached ? 'fa-solid fa-cloud-check' : 'fa-solid fa-cloud-arrow-down';
         dot.style.color = cached ? 'var(--green)' : 'var(--mid)';
-        dot.style.opacity = cached ? '1' : '0.4';
+        dot.style.opacity = cached ? '1' : '0.5';
     });
+}
+
+function dlLog(msg) {
+    const el = document.getElementById('dl-error-log');
+    if (!el) return;
+    if (!el.dataset.init) {
+        el.dataset.init = '1';
+        const clr = document.createElement('button');
+        clr.textContent = '✕ Effacer';
+        clr.style.cssText = 'float:right;background:none;border:none;color:#ff8888;font-size:18px;cursor:pointer;';
+        clr.onclick = () => { el.style.display='none'; el.innerHTML=''; delete el.dataset.init; };
+        el.appendChild(clr);
+    }
+    el.style.display = 'block';
+    const line = document.createElement('div');
+    line.textContent = msg;
+    el.appendChild(line);
 }
 
 async function cacheOneTrack(i) {
@@ -461,11 +481,17 @@ async function cacheOneTrack(i) {
     if (cacheMap[url]) return;
     try {
         const resp = await fetch(url);
-        if (!resp.ok) return;
+        if (!resp.ok) {
+            dlLog('HTTP ' + resp.status + ' — ' + url);
+            return;
+        }
         const blob = await resp.blob();
+        if (!blob || blob.size === 0) { dlLog('Blob vide — ' + url); return; }
         await idbPut(url, blob);
         cacheMap[url] = true;
-    } catch {}
+    } catch(e) {
+        dlLog('Erreur réseau — ' + (e?.message || e) + '\n  → ' + url);
+    }
 }
 
 
@@ -920,13 +946,21 @@ function buildList() {
         renderMusicItem(i,d);
         d.addEventListener('click', e => {
             if (e.target.closest('.titem-cache')) {
-                // Téléchargement du morceau
                 e.stopPropagation();
                 const idx = +d.dataset.idx;
                 if (cacheMap[trackUrl(idx)]) return;
                 const ico = d.querySelector('.titem-cache i');
                 ico.className = 'fa-solid fa-spinner fa-spin';
-                cacheOneTrack(idx).then(()=>renderMusicItem(idx));
+                cacheOneTrack(idx).then(()=>{
+                    if (cacheMap[trackUrl(idx)]) {
+                        renderMusicItem(idx);
+                    } else {
+                        // échec visible : croix rouge 2s puis retour
+                        ico.className = 'fa-solid fa-circle-xmark';
+                        ico.style.color = 'var(--red,#e55)';
+                        setTimeout(()=>renderMusicItem(idx), 2000);
+                    }
+                });
                 return;
             }
             if (e.target.closest('.drag-handle')) return;
@@ -995,11 +1029,16 @@ function jingleUrl(f) { return location.origin + '/jingles/' + encodeURIComponen
 async function autoDownloadJingles() {
     for (const f of JINGLES) {
         const url = jingleUrl(f);
-        if (await idbHas(url)) continue;
+        if (await idbHas(url)) { cacheMap[url] = true; continue; }
         try {
             const r = await fetch(url);
-            if (r.ok) await idbPut(url, await r.blob());
-        } catch {}
+            if (r.ok) {
+                await idbPut(url, await r.blob());
+                cacheMap[url] = true;
+            }
+        } catch(e) { dlLog('Jingle erreur — ' + f + ' : ' + (e?.message || e)); }
+        // rafraîchir la ligne dans le DL manager si ouvert
+        if (document.body.classList.contains('dl-open')) buildDlList();
     }
 }
 
@@ -1071,7 +1110,7 @@ function buildDlList() {
                    <div class="dl-item-sub">Jingle radio</div>
                  </div>
                  <button class="dl-item-btn${cached?' cached':''}" disabled>
-                   <i class="${cached?'fa-solid fa-cloud-check':'fa-solid fa-spinner fa-spin'}"></i>
+                   <i class="${cached?'fa-solid fa-cloud-check':'fa-solid fa-cloud-arrow-down'}" style="opacity:${cached?'1':'0.4'}"></i>
                  </button>`;
             list.appendChild(d);
         });
@@ -1092,11 +1131,23 @@ document.addEventListener('click', async e => {
     btn.disabled = true;
     await cacheOneTrack(i);
     const ok = !!cacheMap[url];
-    ico.className = ok ? 'fa-solid fa-cloud-check' : 'fa-solid fa-cloud-arrow-down';
+    if (ok) {
+        ico.className = 'fa-solid fa-cloud-check';
+        btn.classList.add('cached');
+    } else {
+        ico.className = 'fa-solid fa-circle-xmark';
+        ico.style.color = 'var(--red,#e55)';
+        setTimeout(() => {
+            ico.className = 'fa-solid fa-cloud-arrow-down';
+            ico.style.color = '';
+            btn.disabled = false;
+        }, 2000);
+        updateDlStats();
+        return;
+    }
     btn.disabled = false;
-    if (ok) btn.classList.add('cached');
     updateDlStats();
-    updateCacheIcons(); // met à jour la playlist aussi
+    updateCacheIcons();
 });
 
 function openDl()  {

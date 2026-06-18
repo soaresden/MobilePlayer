@@ -51,11 +51,6 @@
         .topbar { display:flex; align-items:center; justify-content:space-between; padding-top:54px; padding-bottom:6px; }
         .topbar-c { text-align:center; flex:1; }
         .topbar-ttl { font-size:28px; font-weight:700; }
-        .mode-btns { display:flex; justify-content:center; gap:4px; margin-top:6px; }
-        .mbtn { background:rgba(255,255,255,.08); border:none; border-radius:20px; padding:8px 18px;
-            font-size:28px; cursor:pointer; transition:background .15s, transform .1s; line-height:1; }
-        .mbtn:active { transform:scale(.92); }
-        .mbtn.active { background:rgba(255,255,255,.22); outline:1.5px solid rgba(255,255,255,.3); }
 
         /* ARTWORK */
         .art-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:10px 0; }
@@ -70,7 +65,6 @@
         .ttext { flex:1; overflow:hidden; }
         .ttitle  { font-size:42px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .tartist { font-size:28px; color:var(--light); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .lang-badge { font-size:36px; flex-shrink:0; margin-left:8px; opacity:.8; }
 
         /* PROGRESS */
         .prog-wrap { margin-bottom:20px; }
@@ -135,7 +129,6 @@
         .dl-item-info { flex:1; overflow:hidden; }
         .dl-item-ttl { font-size:26px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .dl-item-sub { font-size:19px; color:var(--light); margin-top:2px; }
-        .dl-item-flag { font-size:24px; flex-shrink:0; }
         .dl-item-btn  { width:50px; height:50px; background:none; border:none; font-size:28px;
             display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:var(--light); }
         .dl-item-btn.cached { color:var(--green); }
@@ -168,7 +161,6 @@
         .tittl  { font-size:28px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .tittl.now { color:var(--green); }
         .tartst { font-size:24px; color:var(--light); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .titem-flag { font-size:26px; flex-shrink:0; opacity:.7; }
         .pl-section { padding:18px 4px 8px; font-size:22px; font-weight:700;
             letter-spacing:1.5px; text-transform:uppercase; color:var(--mid); }
 
@@ -219,11 +211,6 @@
                 <button class="ibtn" id="btn-open-pl"><i class="fa-solid fa-chevron-down"></i></button>
                 <div class="topbar-c">
                     <div class="topbar-ttl">AlbaFrancia FM</div>
-                    <div class="mode-btns">
-                        <button class="mbtn" id="m-fr"   title="Musique française seulement">🇫🇷</button>
-                        <button class="mbtn" id="m-both" title="Les deux en alternance">🇫🇷🇦🇱</button>
-                        <button class="mbtn active" id="m-sq" title="Reprises albanaises seulement">🇦🇱</button>
-                    </div>
                 </div>
                 <div class="topbar-actions">
                     <button class="ibtn dim" id="btn-lyrics"  title="Paroles"><i class="fa-solid fa-align-left"></i></button>
@@ -240,7 +227,6 @@
                     <div class="ttitle"  id="track-title"><span class="spin"></span></div>
                     <div class="tartist" id="track-artist">AlbaFrancia FM</div>
                 </div>
-                <span class="lang-badge" id="lang-badge"></span>
             </div>
 
             <div class="prog-wrap">
@@ -278,7 +264,7 @@
             <div class="plhero">
                 <img id="pl-cover" class="plcover" src="cover.png" alt="AlbaFrancia FM">
                 <div class="plname">AlbaFrancia FM</div>
-                <div class="pldesc">Radio Albanaise · Musique Française 🇦🇱🇫🇷</div>
+                <div class="pldesc">AlbaFrancia FM 🇦🇱</div>
                 <div class="plmeta" id="pl-count">… titres</div>
             </div>
             <div class="plactions">
@@ -342,17 +328,14 @@ const CFG = Object.assign({
     jingleEveryMax: 4,
 }, window.CONFIG || {});
 
-const JINGLES   = window.JINGLES        || [];
-const PL_FR     = window.PLAYLIST_FR    || [];
-const PL_SQ     = window.PLAYLIST_SQ    || [];
-const PL_PAIRS  = window.PLAYLIST_PAIRS || null;
+const JINGLES   = window.JINGLES   || [];
+const PLAYLIST  = window.PLAYLIST  || [];
 const JINGLE_D  = 'jingles/';
 const COVER     = 'cover.png';
 
 // ══════════════════ STATE ═════════════════════════════════════════════════
-// track = { file, dir, lang }
-let tracks    = [];
-let mode      = 'sq';     // 'fr' | 'sq' | 'both'
+// track = { file, dir }
+let tracks    = PLAYLIST.map(file => ({ file, dir: 'music/' }));
 const metaDb  = {};       // "dir+file" → { title, artist, coverUrl }
 let curIdx    = 0;
 let isPlaying = false;
@@ -482,7 +465,6 @@ const plCover    = document.getElementById('pl-cover');
 const lyrMiniArt = document.getElementById('lyr-mini-art');
 const tTitle     = document.getElementById('track-title');
 const tArtist    = document.getElementById('track-artist');
-const langBadge  = document.getElementById('lang-badge');
 const pFill      = document.getElementById('prog-fill');
 const pThumb     = document.getElementById('prog-thumb');
 const pHit       = document.getElementById('prog-hit');
@@ -578,41 +560,10 @@ function id3Uslt(d) {
 }
 
 // ══════════════════ TRACK MODEL ═══════════════════════════════════════════
-function mkFR(file) { return { file, dir:'music/', lang:'fr' }; }
-function mkSQ(file) { return { file, dir:'suno/',  lang:'sq' }; }
-
-function buildTracks() {
-    if (mode === 'fr') {
-        tracks = PL_FR.map(mkFR);
-    } else if (mode === 'sq') {
-        tracks = PL_SQ.map(mkSQ);
-    } else {
-        tracks = [];
-        if (PL_PAIRS?.length) {
-            // Use manually-confirmed pairs from config.html
-            for (const p of PL_PAIRS) {
-                if (p.fr) tracks.push(mkFR(p.fr));
-                if (p.sq) tracks.push(mkSQ(p.sq));
-            }
-            // SQ files not in any pair
-            const usedSQ = new Set(PL_PAIRS.map(p=>p.sq).filter(Boolean));
-            for (const f of PL_SQ) if (!usedSQ.has(f)) tracks.push(mkSQ(f));
-        } else {
-            // Fallback: interleave by index
-            const len = Math.max(PL_FR.length, PL_SQ.length);
-            for (let i=0; i<len; i++) {
-                if (i < PL_FR.length) tracks.push(mkFR(PL_FR[i]));
-                if (i < PL_SQ.length) tracks.push(mkSQ(PL_SQ[i]));
-            }
-        }
-    }
-}
-
 function trackKey(i) { return tracks[i].dir + tracks[i].file; }
 function cleanName(f) { return f.replace(/^\d+[-‐.]\d*\s*/,'').replace(/\.mp3$/i,'').trim(); }
 function getTitle(i)  { return metaDb[trackKey(i)]?.title  || cleanName(tracks[i].file); }
 function getArtist(i) { return metaDb[trackKey(i)]?.artist || CFG.radioArtist; }
-function getLangFlag(i) { return tracks[i]?.lang === 'fr' ? '🇫🇷' : '🇦🇱'; }
 
 // ══════════════════ META LOADING ══════════════════════════════════════════
 const mQueue = []; let mBusy = false;
@@ -680,7 +631,6 @@ function refreshPlayer() {
     if (isJingle) return;
     tTitle.textContent  = getTitle(curIdx);
     tArtist.textContent = getArtist(curIdx);
-    langBadge.textContent = getLangFlag(curIdx);
     lyrTitle.textContent  = getTitle(curIdx);
     lyrArtist.textContent = getArtist(curIdx);
     applyArtState();
@@ -708,7 +658,6 @@ async function loadTrack(idx, play=false) {
     }
     tTitle.innerHTML    = '<span class="spin"></span>';
     tArtist.textContent = CFG.radioArtist;
-    langBadge.textContent = '';
     lyrTitle.textContent = lyrArtist.textContent = '';
     artwork.classList.remove('locked');
     setCovers(COVER);
@@ -811,7 +760,6 @@ async function prepJingle() {
     await _setJingleSrc(j);
     tTitle.textContent  = CFG.radioName;
     tArtist.textContent = CFG.radioArtist;
-    langBadge.textContent = '📻';
     lyrTitle.textContent = lyrArtist.textContent = '';
     setCovers(COVER);
     playerBg.style.background = 'linear-gradient(160deg,#1a2a4a 0%,#0f1a2a 25%,#0a1015 45%,var(--black) 68%)';
@@ -825,7 +773,6 @@ async function playJingle(forced=null) {
     await _setJingleSrc(j);
     tTitle.textContent  = CFG.radioName;
     tArtist.textContent = CFG.radioArtist;
-    langBadge.textContent = '📻';
     lyrTitle.textContent = lyrArtist.textContent = '';
     setCovers(COVER);
     playerBg.style.background = 'linear-gradient(160deg,#1a2a4a 0%,#0f1a2a 25%,#0a1015 45%,var(--black) 68%)';
@@ -964,7 +911,6 @@ function buildList() {
 function renderMusicItem(i, el) {
     const d=el||tList.querySelector(`[data-kind="music"][data-idx="${i}"]`); if(!d)return;
     const now=(i===curIdx&&!isJingle);
-    const flag = tracks[i]?.lang==='fr' ? '🇫🇷' : '🇦🇱';
     const cached = !!cacheMap[trackUrl(i)];
     const cIco = cached ? 'fa-solid fa-cloud-check' : 'fa-solid fa-cloud-arrow-down';
     const cCol = cached ? 'var(--green)' : 'var(--mid)';
@@ -976,7 +922,6 @@ function renderMusicItem(i, el) {
            <div class="tittl${now?' now':''}">${esc(getTitle(i))}</div>
            <div class="tartst">${esc(getArtist(i))}</div>
          </div>
-         <span class="titem-flag">${flag}</span>
          <span class="titem-cache"><i class="${cIco}" style="color:${cCol};opacity:${cOpa}"></i></span>`;
 }
 function renderJingleItem(f, el) {
@@ -991,7 +936,7 @@ function renderJingleItem(f, el) {
            <div class="tittl${now?' now':''}">${esc(f.replace(/\.mp3$/i,''))}</div>
            <div class="tartst">${esc(CFG.radioName)}</div>
          </div>
-         <span class="titem-flag">📻</span>`;
+`;
 }
 function updateItem(i) { renderMusicItem(i); }
 function highlightList() {
@@ -1054,12 +999,10 @@ function buildDlList() {
     tracks.forEach((t, i) => {
         const url = trackUrl(i);
         const cached = !!cacheMap[url];
-        const flag = t.lang === 'fr' ? '🇫🇷' : '🇦🇱';
         const d = document.createElement('div');
         d.className = 'dl-item'; d.dataset.dlIdx = i; d.dataset.dlType = 'track';
         d.innerHTML =
-            `<span class="dl-item-flag">${flag}</span>
-             <div class="dl-item-info">
+            `<div class="dl-item-info">
                <div class="dl-item-ttl">${esc(getTitle(i))}</div>
                <div class="dl-item-sub">${esc(getArtist(i))}</div>
              </div>
@@ -1080,8 +1023,7 @@ function buildDlList() {
             const d = document.createElement('div');
             d.className = 'dl-item';
             d.innerHTML =
-                `<span class="dl-item-flag">📻</span>
-                 <div class="dl-item-info">
+                `<div class="dl-item-info">
                    <div class="dl-item-ttl">${esc(f.replace(/\.mp3$/i,''))}</div>
                    <div class="dl-item-sub">Jingle radio</div>
                  </div>
@@ -1190,24 +1132,6 @@ function reorderTrack(from, to, insertBefore) {
     refreshCacheMap().then(()=>{ buildList(); highlightList(); });
 }
 
-// ══════════════════ MODE SWITCHING ════════════════════════════════════════
-function setMode(m) {
-    mode=m;
-    document.getElementById('m-fr')  .classList.toggle('active', m==='fr');
-    document.getElementById('m-both').classList.toggle('active', m==='both');
-    document.getElementById('m-sq')  .classList.toggle('active', m==='sq');
-    buildTracks();
-    buildShuffle();
-    refreshCacheMap().then(()=>{ buildList(); });
-    if (tracks.length) {
-        if (JINGLES.length) prepJingle();
-        else loadTrack(0);
-    }
-}
-document.getElementById('m-fr')  .addEventListener('click', ()=>setMode('fr'));
-document.getElementById('m-both').addEventListener('click', ()=>setMode('both'));
-document.getElementById('m-sq')  .addEventListener('click', ()=>setMode('sq'));
-
 // ══════════════════ VIEW SWITCHING ════════════════════════════════════════
 function openPl() {
     document.body.classList.add('pl-open');
@@ -1287,17 +1211,11 @@ tick(); setInterval(tick,15000);
 
 // ══════════════════ INIT ══════════════════════════════════════════════════
 initDragDrop(); // une seule fois, écoute sur tList par délégation
-if (PL_FR.length || PL_SQ.length) {
-    buildTracks();
-    buildShuffle();
-    refreshCacheMap().then(()=>buildList());
-    autoDownloadJingles(); // silent, no UI
-    if (JINGLES.length) prepJingle();
-    else loadTrack(0);
-} else {
-    tTitle.textContent  = 'config.html → playlist.js → F5';
-    tArtist.textContent = CFG.radioName;
-}
+buildShuffle();
+refreshCacheMap().then(()=>buildList());
+autoDownloadJingles(); // silent, no UI
+if (JINGLES.length) prepJingle();
+else if (tracks.length) loadTrack(0);
 </script>
 </body>
 </html>

@@ -157,6 +157,19 @@
         .titem:active { background:rgba(255,255,255,.06); }
         .tnum  { width:36px; text-align:center; font-size:28px; color:var(--light); flex-shrink:0; }
         .tnum.now { color:var(--green); font-size:22px; }
+        /* Indicateurs paroles */
+        .lyr-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+        .lyr-dot-plain { background:rgba(255,255,255,.55); }
+        @keyframes rainbow-dot {
+            0%,100%{background:#ff6b6b}20%{background:#ffd93d}40%{background:#6bcb77}60%{background:#4d96ff}80%{background:#c77dff}
+        }
+        .lyr-dot-lrc { animation:rainbow-dot 2s linear infinite; }
+        /* Bouton paroles karaoke */
+        @keyframes rainbow-icon {
+            0%,100%{color:#ff6b6b}20%{color:#ffd93d}40%{color:#6bcb77}60%{color:#4d96ff}80%{color:#c77dff}
+        }
+        #btn-lyrics.lyr-plain i  { color:#fff !important; opacity:1; }
+        #btn-lyrics.lyr-lrc   i  { animation:rainbow-icon 2s linear infinite; }
         .tiinfo { flex:1; overflow:hidden; }
         .tittl  { font-size:28px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .tittl.now { color:var(--green); }
@@ -572,7 +585,10 @@ function loadMeta(idx, cb) {
     if (metaDb[key]) { cb&&cb(metaDb[key]); return; }
     const t = tracks[idx];
     xget(t.dir + encodeURIComponent(t.file), 'arraybuffer', buf => {
-        metaDb[key]=parseId3(buf); cb&&cb(metaDb[key]);
+        const m = parseId3(buf);
+        // Pré-détecte le type de paroles depuis USLT
+        if (m.lyrics) m.lyrType = parseLrc(m.lyrics) ? 'lrc' : 'plain';
+        metaDb[key] = m; cb&&cb(m);
     }, () => { metaDb[key]={}; cb&&cb({}); });
 }
 function queueAll() {
@@ -797,19 +813,20 @@ artwork.addEventListener('click', () => {
     }
 });
 
-// ══════════════════ PAROLES (ID3 USLT uniquement) ════════════════════════
-function useLyrFallback(idx) {
-    const key = trackKey(idx);
-    const emb = metaDb[key]?.lyrics;
-    if (emb) {
-        lyricsData = plainLyrics(emb); lyricsSync = false;
-    } else if (!metaDb[key]) {
-        loadMeta(idx, ()=>useLyrFallback(idx));
-        return;
-    } else {
-        lyricsData = []; lyricsSync = false;
+// ══════════════════ PAROLES ═══════════════════════════════════════════════
+function parseLrc(txt) {
+    // Retourne [{t, tx}] si LRC valide, sinon null
+    const lines = txt.split(/\r?\n/);
+    const result = [];
+    for (const line of lines) {
+        const m = line.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)/);
+        if (m) {
+            const t = parseInt(m[1]) * 60 + parseFloat(m[2]);
+            const tx = m[3].trim();
+            if (tx) result.push({ t, tx });
+        }
     }
-    updateLyrBtn(); if (lyrOpen) renderLyrics();
+    return result.length >= 2 ? result : null;
 }
 function plainLyrics(txt) {
     return txt.split(/\r?\n/)
@@ -817,11 +834,47 @@ function plainLyrics(txt) {
         .filter(l=>l)
         .map(tx=>({ t:-1, tx }));
 }
+function applyLyrics(txt, meta) {
+    const lrc = parseLrc(txt);
+    if (lrc) {
+        lyricsData = lrc; lyricsSync = true;
+        if (meta) meta.lyrType = 'lrc';
+    } else {
+        lyricsData = plainLyrics(txt); lyricsSync = false;
+        if (meta) meta.lyrType = 'plain';
+    }
+}
+function useLyrFallback(idx) {
+    const key = trackKey(idx);
+    const meta = metaDb[key];
+    if (!meta) { loadMeta(idx, ()=>useLyrFallback(idx)); return; }
+
+    // 1. Fichier .lrc externe (priorité sur USLT)
+    const t = tracks[idx];
+    const lrcUrl = t.dir + encodeURIComponent(t.file.replace(/\.mp3$/i, '.lrc'));
+    xget(lrcUrl, 'text', txt => {
+        if (txt && txt.trim()) {
+            applyLyrics(txt, meta);
+        } else if (meta.lyrics) {
+            // 2. USLT fallback
+            applyLyrics(meta.lyrics, meta);
+        } else {
+            lyricsData = []; lyricsSync = false; meta.lyrType = 'none';
+        }
+        updateLyrBtn(); if (lyrOpen) renderLyrics();
+        renderMusicItem(idx);
+    }, () => {
+        lyricsData = []; lyricsSync = false; meta.lyrType = 'none';
+        updateLyrBtn(); if (lyrOpen) renderLyrics();
+    });
+}
 function updateLyrBtn() {
-    const btn=document.getElementById('btn-lyrics');
-    const has=lyricsData.length>0;
+    const btn = document.getElementById('btn-lyrics');
+    const has = lyricsData.length > 0;
     btn.classList.toggle('dim', !has);
     btn.style.pointerEvents = has ? 'auto' : 'none';
+    btn.classList.toggle('lyr-plain', has && !lyricsSync);
+    btn.classList.toggle('lyr-lrc',   has &&  lyricsSync);
 }
 function renderLyrics() {
     curLyrLine=-1;
@@ -915,6 +968,10 @@ function renderMusicItem(i, el) {
     const cIco = cached ? 'fa-solid fa-cloud-check' : 'fa-solid fa-cloud-arrow-down';
     const cCol = cached ? 'var(--green)' : 'var(--mid)';
     const cOpa = cached ? '1' : '0.5';
+    const lt = metaDb[trackKey(i)]?.lyrType;
+    const dot = lt === 'lrc'   ? '<span class="lyr-dot lyr-dot-lrc"></span>'
+              : lt === 'plain' ? '<span class="lyr-dot lyr-dot-plain"></span>'
+              : '';
     d.innerHTML=
         `<div class="drag-handle"><i class="fa-solid fa-grip-lines"></i></div>
          <div class="tnum${now?' now':''}">${now?'<i class="fa-solid fa-volume-high"></i>':i+1}</div>
@@ -922,6 +979,7 @@ function renderMusicItem(i, el) {
            <div class="tittl${now?' now':''}">${esc(getTitle(i))}</div>
            <div class="tartst">${esc(getArtist(i))}</div>
          </div>
+         ${dot}
          <span class="titem-cache"><i class="${cIco}" style="color:${cCol};opacity:${cOpa}"></i></span>`;
 }
 function renderJingleItem(f, el) {

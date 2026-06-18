@@ -438,7 +438,8 @@ const blobUrlMap = {};   // url → object URL (évite de recréer à chaque foi
 
 function trackUrl(i) {
     const t = tracks[i];
-    return location.origin + '/' + t.dir + encodeURIComponent(t.file);
+    // new URL résout exactement comme le navigateur pour audio.src
+    return new URL(t.dir + encodeURIComponent(t.file), location.href).href;
 }
 
 async function refreshCacheMap() {
@@ -482,11 +483,11 @@ async function cacheOneTrack(i) {
     try {
         const resp = await fetch(url);
         if (!resp.ok) {
-            dlLog('HTTP ' + resp.status + ' — ' + url);
+            dlLog('HTTP ' + resp.status + '\nURL: ' + url + '\nPage: ' + location.href);
             return;
         }
         const blob = await resp.blob();
-        if (!blob || blob.size === 0) { dlLog('Blob vide — ' + url); return; }
+        if (!blob || blob.size === 0) { dlLog('Blob vide (' + blob?.size + ' bytes)\nURL: ' + url); return; }
         await idbPut(url, blob);
         cacheMap[url] = true;
     } catch(e) {
@@ -1024,7 +1025,7 @@ function highlightList() {
 }
 
 // ══════════════════ DOWNLOAD MANAGER ════════════════════════════════════════
-function jingleUrl(f) { return location.origin + '/jingles/' + encodeURIComponent(f); }
+function jingleUrl(f) { return new URL('jingles/' + encodeURIComponent(f), location.href).href; }
 
 async function autoDownloadJingles() {
     for (const f of JINGLES) {

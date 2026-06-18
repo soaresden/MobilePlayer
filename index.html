@@ -134,7 +134,8 @@
         .dl-prog-wrap { padding:10px 16px 4px; flex-shrink:0; }
         #dl-error-log { margin:8px 16px; padding:10px 12px; background:rgba(220,50,50,.18);
             border:1px solid rgba(220,50,50,.4); border-radius:8px; font-size:18px;
-            color:#ff8888; white-space:pre-wrap; word-break:break-all; display:none; }
+            color:#ff8888; word-break:break-all; display:none;
+            max-height:200px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
         .dl-prog-rail { height:5px; background:rgba(255,255,255,.12); border-radius:3px; }
         .dl-prog-fill { height:100%; width:0%; background:var(--green); border-radius:3px; transition:width .4s; }
         .dl-prog-lbl  { font-size:19px; color:var(--light); margin-top:5px; }
@@ -438,8 +439,8 @@ const blobUrlMap = {};   // url → object URL (évite de recréer à chaque foi
 
 function trackUrl(i) {
     const t = tracks[i];
-    // new URL résout exactement comme le navigateur pour audio.src
-    return new URL(t.dir + encodeURIComponent(t.file), location.href).href;
+    // Laisser new URL encoder le nom de fichier (pas de pre-encode → pas de double-encodage)
+    return new URL(t.dir + t.file, location.href).href;
 }
 
 async function refreshCacheMap() {
@@ -1025,7 +1026,7 @@ function highlightList() {
 }
 
 // ══════════════════ DOWNLOAD MANAGER ════════════════════════════════════════
-function jingleUrl(f) { return new URL('jingles/' + encodeURIComponent(f), location.href).href; }
+function jingleUrl(f) { return new URL('jingles/' + f, location.href).href; }
 
 async function autoDownloadJingles() {
     for (const f of JINGLES) {

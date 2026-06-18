@@ -6,7 +6,7 @@ window.CONFIG = {
 
     // Nom affiché pendant les jingles et dans l'interface
     radioName:   "AlbaFrancia FM",
-    radioArtist: "AlbaFrancia FM",
+    radioArtist: "Announcer",
 
     // Fréquence des jingles :
     // un jingle sera inséré toutes les N à M chansons (tiré au sort)

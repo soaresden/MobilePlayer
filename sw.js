@@ -2,7 +2,7 @@
 // Rôle : cache l'app shell (HTML, JS, CSS, icônes) pour que la page charge hors-ligne.
 // L'audio est géré par IndexedDB directement depuis la page (pas besoin de HTTPS).
 
-const CACHE = 'albafm-shell-v1';
+const CACHE = 'albafm-shell-v6';
 
 const APP_SHELL = [
     '/',
